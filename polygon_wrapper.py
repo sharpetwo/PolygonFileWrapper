@@ -24,7 +24,7 @@ class PolygonEndpoint(Enum):
     TRADES = "trades_v1"
 
 class PolygonFileWrapper():
-    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='./'):
+    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='.'):
         self._base_bucket = 'flatfiles'
         self._endpoint_url = 'https://files.polygon.io'
         self._type = 's3'
@@ -154,7 +154,7 @@ class PolygonFileWrapper():
 
     def _get_filepath_parquet(self, object_key: str) -> str:
         """Get the file path for the parquet file based on the object key."""
-        filename = object_key.split('/')[-1]
+        filename = object_key.split('/')[-1].split('.')[0]
         return f"{self.datadir}/{self._env_market.lower()}/{filename}.parquet"
 
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
