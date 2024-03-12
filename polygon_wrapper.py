@@ -69,9 +69,9 @@ class PolygonFileWrapper():
 
         env_to_enum = {
             "DAY": PolygonEndpoint.DAY,
-            "MINUTE": PolygonEndpoint.MINUTE,
-            "QUOTE": PolygonEndpoint.QUOTE,
-            "TRADE": PolygonEndpoint.TRADE
+            "MINUTE": PolygonEndpoint.MINUTES,
+            "QUOTE": PolygonEndpoint.QUOTES,
+            "TRADE": PolygonEndpoint.TRADES
         }
         # Get the enum value, defaulting to None if not found
         market_enum = env_to_enum.get(self._env_endpoint.upper(), None)
