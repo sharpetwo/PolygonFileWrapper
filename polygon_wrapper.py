@@ -24,7 +24,7 @@ class PolygonEndpoint(Enum):
     TRADES = "trades_v1"
 
 class PolygonFileWrapper():
-    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir=None):
+    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='.'):
         self._base_bucket = 'flatfiles'
         self._endpoint_url = 'https://files.polygon.io'
         self._type = 's3'
@@ -37,7 +37,7 @@ class PolygonFileWrapper():
 
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]
         self.secret_key = secret_key if secret_key else os.environ["SECRET_KEY"]
-        self.datadir = datadir if datadir else os.environ["DATADIR"]
+        self.datadir = os.environ["DATADIR"] if os.environ["DATADIR"] else datadir
 
 
 
