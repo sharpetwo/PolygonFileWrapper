@@ -155,7 +155,7 @@ class PolygonFileWrapper():
     def _get_filepath_parquet(self, object_key: str) -> str:
         """Get the file path for the parquet file based on the object key."""
         filename = object_key.split('/')[-1]
-        return f"{self.datadir}/{self._env_market}/{filename}.parquet"
+        return f"{self.datadir}/{self._env_market.lower()}/{filename}.parquet"
 
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
         """Download a parquet file from S3 and return it as a DataFrame."""
