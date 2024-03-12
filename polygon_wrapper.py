@@ -30,7 +30,7 @@ class PolygonFileWrapper():
         self._type = 's3'
         self._signature_version = 's3v4'
         self._env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
-        self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_MARKET"]
+        self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_ENDPOINT"]
 
         self.polygon_market = self._get_polygon_market()
         self.polygon_endpoint = self._get_polygon_endpoint()
