@@ -194,6 +194,7 @@ class PolygonFileWrapper():
 
             if partition:
                 filepath = self._get_filepath_parquet(obj)
+                print(f"[+] Saving partition at: {filepath}")
                 df.write_parquet(filepath)
             else:
                 dfs_per_day.append(self._clean_options_df(df))
