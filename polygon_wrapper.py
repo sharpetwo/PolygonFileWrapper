@@ -173,6 +173,9 @@ class PolygonFileWrapper():
     def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
 
+
+        ## This break if sip_timestamp not in df - which is the case for /stocks/minutes
+
         return (
             df
             .with_columns(
