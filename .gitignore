@@ -1,3 +1,4 @@
 .envrc
 .direnv/
 polygon_wrapper.egg-info/
+__pycache__/
