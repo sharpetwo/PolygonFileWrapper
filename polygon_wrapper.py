@@ -25,27 +25,28 @@ class PolygonEndpoint(Enum):
 
 class PolygonFileWrapper():
     def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='./'):
-        self.polygon_market = self._get_polygon_market(polygon_market)
-        self.polygon_endpoint = self._get_polygon_endpoint(polygon_endpoint)
+        self._base_bucket = 'flatfiles'
+        self._endpoint_url = 'https://files.polygon.io'
+        self._type = 's3'
+        self._signature_version = 's3v4'
+        self._env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
+        self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_MARKET"]
+
+        self.polygon_market = self._get_polygon_market()
+        self.polygon_endpoint = self._get_polygon_endpoint()
 
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]
         self.secret_key = secret_key if secret_key else os.environ["SECRET_KEY"]
         self.datadir = datadir if datadir else os.environ["DATADIR"]
 
-        self._base_bucket = 'flatfiles'
-        self._endpoint_url = 'https://files.polygon.io'
-        self._type = 's3'
-        self._signature_version = 's3v4'
+
 
         self.download_path = f'{self.polygon_market}/{self.polygon_endpoint}'
         self.s3 = self._init_session()
 
-    @staticmethod
-    def _get_polygon_market(polygon_market: str) -> str:
-        """Get the market value from the environment variable."""
 
-        if polygon_market:
-            env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
+    def _get_polygon_market(self) -> str:
+        """Get the market value from the environment variable."""
 
         env_to_enum = {
             "OPTIONS": PolygonMarket.OPTIONS,
@@ -55,17 +56,16 @@ class PolygonFileWrapper():
             "INDEX": PolygonMarket.INDEX
         }
         # Get the enum value, defaulting to None if not found
-        market_enum = env_to_enum.get(env_market.upper(), None)
+        market_enum = env_to_enum.get(self._env_market.upper(), None)
         if market_enum:
             return market_enum.value
         else:
-            raise ValueError(f"Invalid POLYGON_MARKET value: {env_market}")    
+            raise ValueError(f"Invalid POLYGON_MARKET value: {self._env_market}")    
 
-    @staticmethod
-    def _get_polygon_endpoint(polygon_endpoint: str) -> str:
+
+    def _get_polygon_endpoint(self) -> str:
         """Get the endpoint value from the environment variable."""
-        if polygon_endpoint:
-            env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_MARKET"]
+
 
         env_to_enum = {
             "DAY": PolygonEndpoint.DAY,
@@ -74,11 +74,11 @@ class PolygonFileWrapper():
             "TRADE": PolygonEndpoint.TRADE
         }
         # Get the enum value, defaulting to None if not found
-        market_enum = env_to_enum.get(env_endpoint.upper(), None)
+        market_enum = env_to_enum.get(self._env_endpoint.upper(), None)
         if market_enum:
             return market_enum.value
         else:
-            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {env_endpoint}")                    
+            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {self._env_endpoint}")                    
 
     @staticmethod
     def _format_year(year: int) -> int:
@@ -155,8 +155,7 @@ class PolygonFileWrapper():
     def _get_filepath_parquet(self, object_key: str) -> str:
         """Get the file path for the parquet file based on the object key."""
         filename = object_key.split('/')[-1]
-        instrument = os.environ["POLYGON_MARKET"].lower()
-        return f"{self.datadir}/{instrument}/{filename}.parquet"
+        return f"{self.datadir}/{self._env_market}/{filename}.parquet"
 
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
         """Download a parquet file from S3 and return it as a DataFrame."""
@@ -204,9 +203,7 @@ class PolygonFileWrapper():
 
         df = pl.concat(dfs_per_day)
         if save_disk:
-            instrument = os.environ["POLYGON_MARKET"].lower()
-            endpoint = os.environ["POLYGON_ENDPOINT"].lower()
-            filepath = f"{self.datadir}/{instrument}/{endpoint}.parquet"
+            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
             df.write_parquet(filepath)
 
         return df
@@ -215,7 +212,7 @@ class PolygonFileWrapper():
         """Download data from a single file specified by year, month, and day."""
         obj = self.create_object_key(year, month, day)
         df = self._download_parquet(obj)
-        
+
         if df is None:
             return None
         elif save_disk: 
