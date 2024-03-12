@@ -19,9 +19,9 @@ class PolygonMarket(Enum):
 
 class PolygonEndpoint(Enum):
     DAY = "day_aggs_v1"
-    MINUTE = "minutes_aggs_v1"
-    QUOTE = "quotes_v1"
-    TRADE = "trades_v1"
+    MINUTES = "minutes_aggs_v1"
+    QUOTES = "quotes_v1"
+    TRADES = "trades_v1"
 
 class PolygonFileWrapper():
     def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='./'):
