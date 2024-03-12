@@ -211,15 +211,17 @@ class PolygonFileWrapper():
 
         return df
 
-    def download_single_file(self, year: int, month: int, day: int) -> Optional[pl.DataFrame]:
+    def download_single_file(self, year: int, month: int, day: int, save_disk: bool = True) -> Optional[pl.DataFrame]:
         """Download data from a single file specified by year, month, and day."""
         obj = self.create_object_key(year, month, day)
-        filepath = self._get_filepath_parquet(obj)
         df = self._download_parquet(obj)
+        
         if df is None:
             return None
-        df.write_parquet(filepath)
-        return df 
+        elif save_disk: 
+            filepath = self._get_filepath_parquet(obj)
+            df.write_parquet(filepath)
+            return df 
 
 
     def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
