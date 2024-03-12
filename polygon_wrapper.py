@@ -19,7 +19,7 @@ class PolygonMarket(Enum):
 
 class PolygonEndpoint(Enum):
     DAY = "day_aggs_v1"
-    MINUTES = "minutes_aggs_v1"
+    MINUTES = "minute_aggs_v1"
     QUOTES = "quotes_v1"
     TRADES = "trades_v1"
 
