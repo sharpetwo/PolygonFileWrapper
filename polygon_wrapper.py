@@ -222,7 +222,7 @@ class PolygonFileWrapper():
             return None
         elif save_disk: 
             filepath = self._get_filepath_parquet(obj)
-            df.write_parquet(filepath)
+            df.write_parquet(filepath,compression='snappy')
             return df 
 
 
