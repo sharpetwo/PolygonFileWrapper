@@ -129,7 +129,14 @@ class PolygonFileWrapper():
             if not _date:
                 raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
             
-            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date    
+            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date   
+
+    @staticmethod
+    def _isDateRangeValid(start_date: str,end_date:str):
+        if not dt.datetime.strptime(start_date,"%Y%m%d") <= dt.datetime.strptime(end_date,"%Y%m%d"):
+            raise ValueError("end_date must be greater than start_date")
+        else:
+            return True         
 
 # Talking to the s3polygon                
 
@@ -285,14 +292,21 @@ class PolygonFileWrapper():
 
         return df
 
-    def download_history(self, start_date:str, end_date:str , save_partition: bool = True
+    def download_history(self, start_date:str, end_date:str = None , save_partition: bool = True
                          , clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
-        """ Download history between two dates in format YYYYMMDD"""
+        """ Download history between start_date and end_date in format YYYYMMDD.
+            If no end_date provided we assume the day of yesterday.
+        """
         dfs_per_day = []
+
+        if not end_date:
+            end_date = (dt.datetime.now() - dt.timedelta(days=1)).strftime('%Y%m%d')
+
+        self._isDateRangeValid(start_date,end_date)
         start_date =self._format_date(start_date)
         end_date = self._format_date(end_date)
-        # Raise if end_date < start_date
 
+        
         while start_date <= end_date:
             key = self.create_object_key(start_date.year, start_date.month, start_date.day)
             df = self._download_single_key(key,save_partition,clean)
