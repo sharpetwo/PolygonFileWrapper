@@ -78,7 +78,7 @@ class PolygonFileWrapper():
         if market_enum:
             return market_enum.value
         else:
-            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {self._env_endpoint}")                    
+            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {self._env_endpoint}")
 
     @staticmethod
     def _format_year(year: int) -> int:
@@ -202,21 +202,28 @@ class PolygonFileWrapper():
             )
         )          
 
+    def clean_df(self, df : pl.DataFrame) ->  pl.DataFrame: 
+        """ Basic mapper to clean the dataset based on the dataformat inputed from polygon_market"""
+        if self._env_market.lower() == 'stocks':
+            return self._clean_stocks_df(df)
+        elif self._env_market.lower() == 'options':
+            return self._clean_options_df(df)
+            
     def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, partition: bool = True, save_disk: bool = False) -> Optional[pl.DataFrame]:
         """Download data from a list of objects defined by year and month."""
         dfs_per_day = []
         list_objects = self.get_list_objects(year, month)
         for obj in list_objects:
             df = self._download_parquet(obj)
-            if df is None:
-                continue
+            if df :
+                df = self.clean_df(df)
+                if partition:
+                    filepath = self._get_filepath_parquet(obj)
 
-            if partition:
-                filepath = self._get_filepath_parquet(obj)
-                print(f"[+] Saving partition at: {filepath}")
-                df.write_parquet(filepath,compression='snappy')
+                    print(f"[+] Saving partition at: {filepath}")
+                    df.write_parquet(filepath,compression='snappy')
             
-            dfs_per_day.append(self._clean_stocks_df(df))
+            dfs_per_day.append(df)
 
         if not dfs_per_day:
             print('[+] WARNING - no data downloaded from list objects')
