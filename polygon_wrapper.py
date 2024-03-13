@@ -214,7 +214,7 @@ class PolygonFileWrapper():
             if partition:
                 filepath = self._get_filepath_parquet(obj)
                 print(f"[+] Saving partition at: {filepath}")
-                df.write_parquet(filepath)
+                df.write_parquet(filepath,compression='snappy')
             
             dfs_per_day.append(self._clean_stocks_df(df))
 
