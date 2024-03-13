@@ -310,7 +310,8 @@ class PolygonFileWrapper():
         while start_date <= end_date:
             key = self.create_object_key(start_date.year, start_date.month, start_date.day)
             df = self._download_single_key(key,save_partition,clean)
-            dfs_per_day.append(df)  
+            dfs_per_day.append(df)
+            start_date += dt.timedelta(days=1)
 
         df = pl.concat(dfs_per_day)
         if save_disk:
