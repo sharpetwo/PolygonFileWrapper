@@ -45,6 +45,8 @@ class PolygonFileWrapper():
         self.download_path = f'{self.polygon_market}/{self.polygon_endpoint}'
         self.s3 = self._init_session()
 
+        ## Adding save_partition, clean and save_disk as properties?
+
 
     def _get_polygon_market(self) -> str:
         """Get the market value from the environment variable."""
@@ -127,7 +129,9 @@ class PolygonFileWrapper():
             if not _date:
                 raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
             
-            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date            
+            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date    
+
+# Talking to the s3polygon                
 
     def _init_session(self) -> boto3.client:
         """Initialize the S3 session using the provided credentials and configuration."""
@@ -252,7 +256,13 @@ class PolygonFileWrapper():
             print(f"[+] Saving partition at: {filepath}")
             df.write_parquet(filepath, compression='snappy')
 
-        return df        
+        return df 
+
+    def download_single_file(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
+        """Download data from a single file specified by a date str format YYYYMMDD"""
+        date = self._format_date(date)
+        key = self.create_object_key(date.year, date.month, date.day)
+        return self._download_single_key(key,save_partition,clean)      
             
     def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None
                                    , partition: bool = True, clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
@@ -274,14 +284,6 @@ class PolygonFileWrapper():
             df.write_parquet(filepath)
 
         return df
-    
-
-    def download_single_file(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
-        """Download data from a single file specified by year, month, and day."""
-        date = self._format_date(date)
-        key = self.create_object_key(date.year, date.month, date.day)
-        return self._download_single_key(key,save_partition,clean)
-        
 
     def download_history(self, start_date:str, end_date:str , save_partition: bool = True
                          , clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
@@ -303,8 +305,6 @@ class PolygonFileWrapper():
 
         return df                    
 
-
-
     def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
         """Fetch trades for a given instrument and date range.
 
@@ -325,10 +325,6 @@ class PolygonFileWrapper():
         if dfs_per_day:
             return pl.concat(dfs_per_day)
              
-
-
-
-
 
 
 if __name__ == '__main__':
