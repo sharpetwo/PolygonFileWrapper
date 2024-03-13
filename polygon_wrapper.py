@@ -209,23 +209,28 @@ class PolygonFileWrapper():
         elif self._env_market.lower() == 'options':
             return self._clean_options_df(df)
             
-    def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, partition: bool = True, save_disk: bool = False) -> Optional[pl.DataFrame]:
+    def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None
+                                   , partition: bool = True, clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
         """Download data from a list of objects defined by year and month."""
         dfs_per_day = []
         list_objects = self.get_list_objects(year, month)
         for obj in list_objects:
             df = self._download_parquet(obj)
-            if df is None :
+            if df is None:
                 continue
-            else:
-                df = self.clean_df(df)
-                if partition:
-                    filepath = self._get_filepath_parquet(obj)
 
-                    print(f"[+] Saving partition at: {filepath}")
-                    df.write_parquet(filepath,compression='snappy')
-            
+            # If 'clean' is True, clean the df
+            if clean:
+                df = self.clean_df(df)
+
+            # Save the df to disk if 'partition' is True
+            if partition:
+                filepath = self._get_filepath_parquet(obj)
+                print(f"[+] Saving partition at: {filepath}")
+                df.write_parquet(filepath, compression='snappy')
+
             dfs_per_day.append(df)
+
 
         if not dfs_per_day:
             print('[+] WARNING - no data downloaded from list objects')
