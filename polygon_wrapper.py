@@ -184,7 +184,23 @@ class PolygonFileWrapper():
             .with_columns(
                 pl.col("timestamp").dt.convert_time_zone("America/New_York")
             )
-        )        
+        )      
+
+    def _clean_stocks_df(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Basic data cleaning for a DataFrame containing options trades."""
+
+
+        ## This break if sip_timestamp not in df - which is the case for /stocks/minutes
+
+        return (
+            df
+            .with_columns(
+                pl.from_epoch(pl.col("window_start"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
+            )
+            .with_columns(
+                pl.col("timestamp").dt.convert_time_zone("America/New_York")
+            )
+        )          
 
     def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, partition: bool = True, save_disk: bool = False) -> Optional[pl.DataFrame]:
         """Download data from a list of objects defined by year and month."""
