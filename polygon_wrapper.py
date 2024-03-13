@@ -216,7 +216,7 @@ class PolygonFileWrapper():
                 print(f"[+] Saving partition at: {filepath}")
                 df.write_parquet(filepath)
             
-            dfs_per_day.append(self._clean_options_df(df))
+            dfs_per_day.append(self._clean_stocks_df(df))
 
         if not dfs_per_day:
             print('[+] WARNING - no data downloaded from list objects')
