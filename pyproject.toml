@@ -1,7 +1,7 @@
 [project]
 name = "polygon_wrapper"
 version = "0.1"
-dependencies = ["boto3", "polars"]
+dependencies = ["boto3", "polars","dateparser"]
 
 [project.optional-dependencies]
 dev = ["pytest"]

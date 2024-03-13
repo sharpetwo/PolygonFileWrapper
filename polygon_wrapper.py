@@ -1,5 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Union
 import datetime as dt
+import dateparser
 from io import BytesIO
 import gzip
 import os
@@ -104,6 +105,29 @@ class PolygonFileWrapper():
             return f"{day:02}"
         else:
             raise ValueError("Day must be an integer between 1 and 31 inclusive")
+        
+    @staticmethod
+    def _format_date(date: str, _str: bool = False) -> Union[str, dt.datetime]:
+        """
+        Helper function to format date as "YYYYMMDD" if not already formatted.
+
+        Args:
+            date (str): The date string to format.
+            _str (bool): Flag indicating whether to return a string or datetime object.
+
+        Returns:
+            Union[str, datetime.datetime]: The formatted date string in the format "YYYYMMDD" 
+                                        or a datetime object.
+        """
+        try:
+            _date = dt.datetime.strptime(date, '%Y%m%d')
+            return date if _str else _date
+        except ValueError:
+            _date = dateparser.parse(date)
+            if not _date:
+                raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
+            
+            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date            
 
     def _init_session(self) -> boto3.client:
         """Initialize the S3 session using the provided credentials and configuration."""
@@ -135,6 +159,7 @@ class PolygonFileWrapper():
             raise ValueError("Month cannot come without a year")
 
 
+# Work with keys and filename
     def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
         """Download a list of object partial or total based on parameters year and month."""
         prefix = self.get_prefix(year, month)
@@ -157,19 +182,9 @@ class PolygonFileWrapper():
         filename = object_key.split('/')[-1].split('.')[0]
         return f"{self.datadir}/{self._env_market.lower()}/{filename}.parquet"
 
-    def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
-        """Download a parquet file from S3 and return it as a DataFrame."""
-        with BytesIO() as data:
-            try:
-                self.s3.download_fileobj(self._base_bucket, key, data)
-            except ClientError:
-                # Couldn't find a file for a given key
-                return None
-            data.seek(0)
-            csv_file = gzip.decompress(data.read())
-            df = pl.read_csv(csv_file)
-            return df
-        
+
+
+# It feels like this could be a separate module dedicating to cleaning stuff?
     def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
 
@@ -202,35 +217,52 @@ class PolygonFileWrapper():
             )
         )          
 
-    def clean_df(self, df : pl.DataFrame) ->  pl.DataFrame: 
+    def _clean_df(self, df : pl.DataFrame) ->  pl.DataFrame: 
         """ Basic mapper to clean the dataset based on the dataformat inputed from polygon_market"""
         if self._env_market.lower() == 'stocks':
             return self._clean_stocks_df(df)
         elif self._env_market.lower() == 'options':
             return self._clean_options_df(df)
+
+# Downloads functions 
+    def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
+        """Download a parquet file from S3 and return it as a DataFrame."""
+        with BytesIO() as data:
+            try:
+                self.s3.download_fileobj(self._base_bucket, key, data)
+            except ClientError:
+                # Couldn't find a file for a given key
+                return None
+            data.seek(0)
+            csv_file = gzip.decompress(data.read())
+            df = pl.read_csv(csv_file)
+            return df               
+        
+    def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
+                            
+        df = self._download_parquet(key)
+        if df is None:
+            return None
+
+        if clean:
+            df = self._clean_df(df)
+
+        if save_partition:
+            filepath = self._get_filepath_parquet(key)
+            print(f"[+] Saving partition at: {filepath}")
+            df.write_parquet(filepath, compression='snappy')
+
+        return df        
             
     def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None
                                    , partition: bool = True, clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
         """Download data from a list of objects defined by year and month."""
         dfs_per_day = []
         list_objects = self.get_list_objects(year, month)
-        for obj in list_objects:
-            df = self._download_parquet(obj)
-            if df is None:
-                continue
+        for key in list_objects:
 
-            # If 'clean' is True, clean the df
-            if clean:
-                df = self.clean_df(df)
-
-            # Save the df to disk if 'partition' is True
-            if partition:
-                filepath = self._get_filepath_parquet(obj)
-                print(f"[+] Saving partition at: {filepath}")
-                df.write_parquet(filepath, compression='snappy')
-
+            df = self._download_single_key(key,partition,clean)
             dfs_per_day.append(df)
-
 
         if not dfs_per_day:
             print('[+] WARNING - no data downloaded from list objects')
@@ -242,18 +274,35 @@ class PolygonFileWrapper():
             df.write_parquet(filepath)
 
         return df
+    
 
-    def download_single_file(self, year: int, month: int, day: int, save_disk: bool = True) -> Optional[pl.DataFrame]:
+    def download_single_file(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
         """Download data from a single file specified by year, month, and day."""
-        obj = self.create_object_key(year, month, day)
-        df = self._download_parquet(obj)
+        date = self._format_date(date)
+        key = self.create_object_key(date.year, date.month, date.day)
+        return self._download_single_key(key,save_partition,clean)
+        
 
-        if df is None:
-            return None
-        elif save_disk: 
-            filepath = self._get_filepath_parquet(obj)
-            df.write_parquet(filepath,compression='snappy')
-            return df 
+    def download_history(self, start_date:str, end_date:str , save_partition: bool = True
+                         , clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
+        """ Download history between two dates in format YYYYMMDD"""
+        dfs_per_day = []
+        start_date =self._format_date(start_date)
+        end_date = self._format_date(end_date)
+        # Raise if end_date < start_date
+
+        while start_date <= end_date:
+            key = self.create_object_key(start_date.year, start_date.month, start_date.day)
+            df = self._download_single_key(key,save_partition,clean)
+            dfs_per_day.append(df)  
+
+        df = pl.concat(dfs_per_day)
+        if save_disk:
+            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
+            df.write_parquet(filepath)
+
+        return df                    
+
 
 
     def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
@@ -275,6 +324,11 @@ class PolygonFileWrapper():
 
         if dfs_per_day:
             return pl.concat(dfs_per_day)
+             
+
+
+
+
 
 
 if __name__ == '__main__':
