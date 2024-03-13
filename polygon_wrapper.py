@@ -215,7 +215,9 @@ class PolygonFileWrapper():
         list_objects = self.get_list_objects(year, month)
         for obj in list_objects:
             df = self._download_parquet(obj)
-            if df :
+            if df is None :
+                continue
+            else:
                 df = self.clean_df(df)
                 if partition:
                     filepath = self._get_filepath_parquet(obj)
