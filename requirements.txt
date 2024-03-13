@@ -15,10 +15,14 @@ jmespath==1.0.1
     #   boto3
     #   botocore
 numpy==1.26.4
-    # via pandas
+    # via
+    #   pandas
+    #   pyarrow
 pandas==2.2.1
     # via polygon_wrapper (pyproject.toml)
 polars==0.20.15
+    # via polygon_wrapper (pyproject.toml)
+pyarrow==15.0.1
     # via polygon_wrapper (pyproject.toml)
 python-dateutil==2.9.0.post0
     # via
