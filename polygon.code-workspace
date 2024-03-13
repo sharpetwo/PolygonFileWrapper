@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../thetadata/prod/job/data"
+		}
+	],
+	"settings": {}
+}

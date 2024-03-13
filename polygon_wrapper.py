@@ -10,6 +10,8 @@ from botocore.config import Config
 from botocore.exceptions import ClientError
 import polars as pl
 
+import pandas as pd
+
 class PolygonMarket(Enum):
     OPTIONS = "us_options_opra"
     STOCKS = "us_stocks_sip"
@@ -37,7 +39,7 @@ class PolygonFileWrapper():
 
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]
         self.secret_key = secret_key if secret_key else os.environ["SECRET_KEY"]
-        self.datadir = os.environ["DATADIR"] if os.environ["DATADIR"] else datadir
+        self.datadir = os.environ["DATADIR"] if os.environ["DATADIR"] else datadir # Need somthing more robust here - what if datadir is none?
 
 
 
@@ -198,7 +200,9 @@ class PolygonFileWrapper():
             if partition:
                 filepath = self._get_filepath_parquet(obj)
                 print(f"[+] Saving partition at: {filepath}")
-                df.write_parquet(filepath)
+                #df.write_parquet(filepath)
+                pandas_df = df.to_pandas()
+                pandas_df.to_parquent(filepath,engine='pyarrow',compression='snappy')
             
             dfs_per_day.append(self._clean_options_df(df))
 
