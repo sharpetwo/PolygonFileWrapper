@@ -83,6 +83,7 @@ class PolygonFileWrapper():
         else:
             raise ValueError(f"Invalid POLYGON_ENDPOINT value: {self._env_endpoint}")
 
+## Work with dates
     @staticmethod
     def _format_year(year: int) -> int:
         """Format the year value."""
@@ -135,10 +136,26 @@ class PolygonFileWrapper():
 
     @staticmethod
     def _isDateRangeValid(start_date: str,end_date:str):
+        """ Helper function checking if the start_date < end_date."""
+
         if not dt.datetime.strptime(start_date,"%Y%m%d") <= dt.datetime.strptime(end_date,"%Y%m%d"):
             raise ValueError("end_date must be greater than start_date")
         else:
-            return True         
+            return True   
+
+    def _get_date_range(self,start_date:str, end_date:str = None) -> pd.DataFrame :
+        """ Helper function returning a formated date range from a start_date and end_date"""
+
+        if not end_date:
+            end_date = (dt.datetime.now() - dt.timedelta(days=1)).strftime('%Y%m%d')
+
+        self._isDateRangeValid(start_date,end_date)
+        start_date =self._format_date(start_date)
+        end_date = self._format_date(end_date)
+
+        
+        # Generate a range of business days between start_date and end_date
+        return pd.date_range(start=start_date, end=end_date, freq='B')              
 
 # Talking to the s3polygon                
 
@@ -173,6 +190,11 @@ class PolygonFileWrapper():
 
 
 # Work with keys and filename
+    @staticmethod
+    def _get_date_from_key(key: str) -> str:
+        """Helper function to return the date from a key"""
+        return key.split('/')[-1].split('.')[0]
+            
     def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
         """Download a list of object partial or total based on parameters year and month."""
         prefix = self.get_prefix(year, month)
@@ -189,14 +211,9 @@ class PolygonFileWrapper():
         month = self._format_month(month)
         day = self._format_day(day)
         return f'{self.download_path}/{year}/{month}/{year}-{month}-{day}.csv.gz'
-    
-    @staticmethod
-    def _get_date_from_key(key: str) -> str:
-        """ Return the date from a key"""
-        return key.split('/')[-1].split('.')[0]
 
     def _get_filepath_parquet(self, key: str) -> str:
-        """Get the file path for the parquet file based on the object key."""
+        """Helper function to get the file path for the parquet file based on the object key."""
         date = self._get_date_from_key(key)
         return f"{self.datadir}/{self._env_market.lower()}/{date}.parquet"
 
@@ -205,9 +222,6 @@ class PolygonFileWrapper():
 # It feels like this could be a separate module dedicating to cleaning stuff?
     def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
-
-
-        ## This break if sip_timestamp not in df - which is the case for /stocks/minutes
 
         return (
             df
@@ -222,9 +236,6 @@ class PolygonFileWrapper():
     def _clean_stocks_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
 
-
-        ## This break if sip_timestamp not in df - which is the case for /stocks/minutes
-
         return (
             df
             .with_columns(
@@ -236,7 +247,7 @@ class PolygonFileWrapper():
         )          
 
     def _clean_df(self, df : pl.DataFrame) ->  pl.DataFrame: 
-        """ Basic mapper to clean the dataset based on the dataformat inputed from polygon_market"""
+        """ Helper function to clean the dataset based on the dataformat inputed from polygon_market"""
         if self._env_market.lower() == 'stocks':
             return self._clean_stocks_df(df)
         elif self._env_market.lower() == 'options':
@@ -244,7 +255,7 @@ class PolygonFileWrapper():
 
 # Downloads functions 
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
-        """Download a parquet file from S3 and return it as a DataFrame."""
+        """Helper function downloading a parquet file from S3, handling errors and return it as a DataFrame."""
         with BytesIO() as data:
             try:
                 self.s3.download_fileobj(self._base_bucket, key, data)
@@ -257,17 +268,15 @@ class PolygonFileWrapper():
                 date = self._get_date_from_key(key)
                 if error_code == '404':
                     print(f"404 - File not found for date {date} ")
-                    # Handle the 404 error specifically, e.g., by returning None or logging
                     return None
                 else:
                     print(f"Error in _download_parquet for date {date}: {e}")
                     raise 
-                # Couldn't find a file for a given key
-                # return None
+
           
         
     def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
-                            
+        """ Helper function going through the necessary steps for downloading and processing of single key."""
         df = self._download_parquet(key)
         if df is None:
             return None
@@ -315,31 +324,21 @@ class PolygonFileWrapper():
             If no end_date provided we assume the day of yesterday.
         """
         dfs_per_day = []
-
-        if not end_date:
-            end_date = (dt.datetime.now() - dt.timedelta(days=1)).strftime('%Y%m%d')
-
-        self._isDateRangeValid(start_date,end_date)
-        start_date =self._format_date(start_date)
-        end_date = self._format_date(end_date)
-
-        
-        # Generate a range of business days between start_date and end_date
-        date_range = pd.date_range(start=start_date, end=end_date, freq='B')
+        date_range = self._get_date_range(start_date, end_date)
 
         for current_date in date_range:
             key = self.create_object_key(current_date.year, current_date.month, current_date.day)
             df = self._download_single_key(key,save_partition,clean)
 
-            if df is not None:
-                dfs_per_day.append(df)
+        #     if df is not None:
+        #         dfs_per_day.append(df) # if huge can run in OOM
 
-        df = pl.concat(dfs_per_day)
-        if save_disk:
-            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
-            df.write_parquet(filepath)
+        # df = pl.concat(dfs_per_day)
+        # if save_disk:
+        #     filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
+        #     df.write_parquet(filepath)
 
-        return df                    
+        return None                   
 
     def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
         """Fetch trades for a given instrument and date range.
@@ -360,10 +359,4 @@ class PolygonFileWrapper():
 
         if dfs_per_day:
             return pl.concat(dfs_per_day)
-             
 
-
-if __name__ == '__main__':
-    wrapper = PolygonFileWrapper()
-    files = wrapper.get_list_files()
-    print(files)
