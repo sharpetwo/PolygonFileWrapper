@@ -247,8 +247,14 @@ class PolygonFileWrapper():
                 df = pl.read_csv(csv_file)
                 return df                     
             except ClientError as e:
-                print(f"Error in _download_parquet: {e}")
-                raise
+                error_code = e.response['Error']['Code']
+                if error_code == '404':
+                    print(f"File not found for key {key}: {e}")
+                    # Handle the 404 error specifically, e.g., by returning None or logging
+                    return None
+                else:
+                    print(f"Error in _download_parquet for key {key}: {e}")
+                    raise 
                 # Couldn't find a file for a given key
                 # return None
           
@@ -257,7 +263,6 @@ class PolygonFileWrapper():
                             
         df = self._download_parquet(key)
         if df is None:
-            print(f'[+] No data for {key}')
             return None
 
         if clean:
