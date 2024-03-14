@@ -247,7 +247,8 @@ class PolygonFileWrapper():
                 df = pl.read_csv(csv_file)
                 return df                     
             except ClientError as e:
-                raise(f"Error in _download_parquet: {e}")
+                print(f"Error in _download_parquet: {e}")
+                raise
                 # Couldn't find a file for a given key
                 # return None
           
