@@ -188,11 +188,16 @@ class PolygonFileWrapper():
         month = self._format_month(month)
         day = self._format_day(day)
         return f'{self.download_path}/{year}/{month}/{year}-{month}-{day}.csv.gz'
+    
+    @staticmethod
+    def _get_date_from_key(key: str) -> str:
+        """ Return the date from a key"""
+        return key.split('/')[-1].split('.')[0]
 
-    def _get_filepath_parquet(self, object_key: str) -> str:
+    def _get_filepath_parquet(self, key: str) -> str:
         """Get the file path for the parquet file based on the object key."""
-        filename = object_key.split('/')[-1].split('.')[0]
-        return f"{self.datadir}/{self._env_market.lower()}/{filename}.parquet"
+        date = self._get_date_from_key(key)
+        return f"{self.datadir}/{self._env_market.lower()}/{date}.parquet"
 
 
 
@@ -248,12 +253,13 @@ class PolygonFileWrapper():
                 return df                     
             except ClientError as e:
                 error_code = e.response['Error']['Code']
+                date = self._get_date_from_key(key)
                 if error_code == '404':
-                    print(f"File not found for key {key}: {e}")
+                    print(f"404 - File not found for date {date} ")
                     # Handle the 404 error specifically, e.g., by returning None or logging
                     return None
                 else:
-                    print(f"Error in _download_parquet for key {key}: {e}")
+                    print(f"Error in _download_parquet for date {date}: {e}")
                     raise 
                 # Couldn't find a file for a given key
                 # return None
