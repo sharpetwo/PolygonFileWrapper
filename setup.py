@@ -8,7 +8,7 @@ setup(
     description='Polygon.io flat file downloader',
     py_modules=["polygon_wrapper"],
     install_requires=[
-        'boto3'
+        'boto3',
         'polars',
     ]
 )
