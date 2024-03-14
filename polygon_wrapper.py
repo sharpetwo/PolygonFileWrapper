@@ -207,7 +207,7 @@ class PolygonFileWrapper():
     
     def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
         """Download a list of object partial or total based on parameters year and month."""
-        prefix = self.get_prefix(year, month)
+        prefix = self._get_prefix(year, month)
         print(f'[+] Listing from {self._base_bucket}/{prefix}')
         objects = self.s3.list_objects(Bucket=self._base_bucket, Prefix=prefix)
         contents = [obj.get('Key') for obj in objects.get('Contents', [])]
@@ -217,7 +217,7 @@ class PolygonFileWrapper():
 
 
 
-# It feels like this could be a separate module dedicating to cleaning stuff?
+# Basic Cleaning functions
     def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
 
@@ -297,7 +297,7 @@ class PolygonFileWrapper():
 
     def download_history_on_disk(self, start_date:str, end_date:str = None, clean: bool = False) -> Optional[pl.DataFrame]:
                          
-        """ Download history between start_date and end_date in format YYYYMMDD and save on disk.
+        """ Download history between start_date and end_date in format YYYYMMDD and save in the datadir.
             If no end_date provided we assume the day of yesterday.
             If clean is true - it will perform basic cleaning operations.
         """
@@ -327,25 +327,4 @@ class PolygonFileWrapper():
             if df is not None:
                 df_accumulated = df if df_accumulated is None else pl.concat([df_accumulated,df])
 
-        return df                       
-
-    # def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
-    #     """Fetch trades for a given instrument and date range.
-
-    #     Ignores weekends and holidays.
-
-    #     Returns a single DataFrame with all the data combined.
-
-    #     """
-    #     dfs_per_day = []
-    #     current_date = start_date
-    #     while current_date <= end_date:
-    #         key = self.create_object_key(current_date.year, current_date.month, current_date.day)
-    #         df = self._download_parquet(key)
-    #         if df is not None:
-    #             dfs_per_day.append(self._clean_options_df(df))
-    #         current_date += dt.timedelta(days=1)
-
-    #     if dfs_per_day:
-    #         return pl.concat(dfs_per_day)
-
+        return df

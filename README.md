@@ -21,8 +21,9 @@ Define two env variables `POLYGON_MARKET` and `POLYGON_ENDPOINT` depending on th
     POLYGON_MARKET -> OPTIONS, STOCKS, CRYPTO, FOREX, INDEX
     POLYGON_ENDPOINT -> DAY, MINUTES, TRADES, QUOTES
 
-# Run tests
+Define env variables `DATADIR` if you want to store each date as a parquet file.    
 
-Make sure the desination folder for the downloaded data exist, eg. `options`.
+# Run tests
+Run tests.
 
     ACCESS_KEY=... SECRET_KEY=... POLYGON_MARKET=OPTIONS  POLYGON_ENDPOINT=MINUTES DATADIR=. pytest test.py
