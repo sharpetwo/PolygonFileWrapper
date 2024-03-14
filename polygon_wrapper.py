@@ -323,20 +323,21 @@ class PolygonFileWrapper():
         """ Download history between start_date and end_date in format YYYYMMDD.
             If no end_date provided we assume the day of yesterday.
         """
-        dfs_per_day = []
+        df_accumulated = None
         date_range = self._get_date_range(start_date, end_date)
 
         for current_date in date_range:
             key = self.create_object_key(current_date.year, current_date.month, current_date.day)
             df = self._download_single_key(key,save_partition,clean)
 
-        #     if df is not None:
-        #         dfs_per_day.append(df) # if huge can run in OOM
 
-        # df = pl.concat(dfs_per_day)
-        # if save_disk:
-        #     filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
-        #     df.write_parquet(filepath)
+            if df is not None: 
+                df_accumulated = df if df_accumulated is None else pl.concat([df_accumulated, df]) ## Should mitigate OOM
+
+ 
+        if save_disk:
+            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
+            df_accumulated.write_parquet(filepath)
 
         return None                   
 
