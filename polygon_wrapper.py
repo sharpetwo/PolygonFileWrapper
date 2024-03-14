@@ -26,7 +26,7 @@ class PolygonEndpoint(Enum):
     TRADES = "trades_v1"
 
 class PolygonFileWrapper():
-    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir='.'):
+    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir = '.'):
         self._base_bucket = 'flatfiles'
         self._endpoint_url = 'https://files.polygon.io'
         self._type = 's3'
@@ -45,8 +45,6 @@ class PolygonFileWrapper():
 
         self.download_path = f'{self.polygon_market}/{self.polygon_endpoint}'
         self.s3 = self._init_session()
-
-        ## Adding save_partition, clean and save_disk as properties?
 
 
     def _get_polygon_market(self) -> str:
@@ -86,7 +84,7 @@ class PolygonFileWrapper():
 ## Work with dates
     @staticmethod
     def _format_year(year: int) -> int:
-        """Format the year value."""
+        """Helper function to format the year value."""
 
         if isinstance(year, int) and 2000 <= year < 2100:
             return year
@@ -95,7 +93,7 @@ class PolygonFileWrapper():
 
     @staticmethod
     def _format_month(month: int) -> str:
-        """Format the month value."""
+        """Helper function to format the month value."""
 
         if isinstance(month, int) and 1 <= month <= 12:
             return f"{month:02}"
@@ -104,7 +102,7 @@ class PolygonFileWrapper():
 
     @staticmethod
     def _format_day(day: int) -> str:
-        """Format the day value."""
+        """Helper function to format the day value."""
 
         if isinstance(day, int) and 1 <= day <= 31:
             return f"{day:02}"
@@ -135,7 +133,7 @@ class PolygonFileWrapper():
             return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date   
 
     @staticmethod
-    def _isDateRangeValid(start_date: str,end_date:str):
+    def _is_date_range_valid(start_date: str,end_date:str):
         """ Helper function checking if the start_date < end_date."""
 
         if not dt.datetime.strptime(start_date,"%Y%m%d") <= dt.datetime.strptime(end_date,"%Y%m%d"):
@@ -149,7 +147,7 @@ class PolygonFileWrapper():
         if not end_date:
             end_date = (dt.datetime.now() - dt.timedelta(days=1)).strftime('%Y%m%d')
 
-        self._isDateRangeValid(start_date,end_date)
+        self._is_date_range_valid(start_date,end_date)
         start_date =self._format_date(start_date)
         end_date = self._format_date(end_date)
 
@@ -174,8 +172,8 @@ class PolygonFileWrapper():
         )
         return s3
 
-    def get_prefix(self, year: Optional[int] = None, month: Optional[int] = None) -> str:
-        """Build the download path (prefix) needed after the bucket name."""
+    def _get_prefix(self, year: Optional[int] = None, month: Optional[int] = None) -> str:
+        """Helper function to build the download path (prefix) needed after the bucket name."""
         year = self._format_year(year) if year else None
         month = self._format_month(month) if month else None
 
@@ -195,17 +193,7 @@ class PolygonFileWrapper():
         """Helper function to return the date from a key"""
         return key.split('/')[-1].split('.')[0]
             
-    def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
-        """Download a list of object partial or total based on parameters year and month."""
-        prefix = self.get_prefix(year, month)
-        print(f'[+] Listing from {self._base_bucket}/{prefix}')
-        objects = self.s3.list_objects(Bucket=self._base_bucket, Prefix=prefix)
-        contents = [obj.get('Key') for obj in objects.get('Contents', [])]
-        if verbose:
-            print(contents)
-        return contents
-
-    def create_object_key(self, year: int, month: int, day: int) -> str:
+    def _create_object_key(self, year: int, month: int, day: int) -> str:
         """Create an object key respecting Polygon name policies."""
         year = self._format_year(year)
         month = self._format_month(month)
@@ -215,7 +203,17 @@ class PolygonFileWrapper():
     def _get_filepath_parquet(self, key: str) -> str:
         """Helper function to get the file path for the parquet file based on the object key."""
         date = self._get_date_from_key(key)
-        return f"{self.datadir}/{self._env_market.lower()}/{date}.parquet"
+        return f"{self.datadir}/{date}.parquet"
+    
+    def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
+        """Download a list of object partial or total based on parameters year and month."""
+        prefix = self.get_prefix(year, month)
+        print(f'[+] Listing from {self._base_bucket}/{prefix}')
+        objects = self.s3.list_objects(Bucket=self._base_bucket, Prefix=prefix)
+        contents = [obj.get('Key') for obj in objects.get('Contents', [])]
+        if verbose:
+            print(contents)
+        return contents    
 
 
 
@@ -272,8 +270,6 @@ class PolygonFileWrapper():
                 else:
                     print(f"Error in _download_parquet for date {date}: {e}")
                     raise 
-
-          
         
     def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
         """ Helper function going through the necessary steps for downloading and processing of single key."""
@@ -291,73 +287,65 @@ class PolygonFileWrapper():
 
         return df 
 
-    def download_single_file(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
-        """Download data from a single file specified by a date str format YYYYMMDD"""
-        date = self._format_date(date)
-        key = self.create_object_key(date.year, date.month, date.day)
-        return self._download_single_key(key,save_partition,clean)      
-            
-    def download_from_list_objects(self, year: Optional[int] = None, month: Optional[int] = None
-                                   , partition: bool = True, clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
-        """Download data from a list of objects defined by year and month."""
-        dfs_per_day = []
-        list_objects = self.get_list_objects(year, month)
-        for key in list_objects:
-
-            df = self._download_single_key(key,partition,clean)
-            dfs_per_day.append(df)
-
-        if not dfs_per_day:
-            print('[+] WARNING - no data downloaded from list objects')
-            return None
-
-        df = pl.concat(dfs_per_day)
-        if save_disk:
-            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
-            df.write_parquet(filepath)
-
-        return df
-
-    def download_history(self, start_date:str, end_date:str = None , save_partition: bool = True
-                         , clean: bool = False, save_disk: bool = False) -> Optional[pl.DataFrame]:
-        """ Download history between start_date and end_date in format YYYYMMDD.
-            If no end_date provided we assume the day of yesterday.
+    def download_single_date(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
+        """Download data from a single file specified by a date str format YYYYMMDD.
+        If save_partition is true - it will save in the datadir. 
         """
-        df_accumulated = None
+        date = self._format_date(date)
+        key = self._create_object_key(date.year, date.month, date.day)
+        return self._download_single_key(key,save_partition,clean)                  
+
+    def download_history_on_disk(self, start_date:str, end_date:str = None, clean: bool = False) -> Optional[pl.DataFrame]:
+                         
+        """ Download history between start_date and end_date in format YYYYMMDD and save on disk.
+            If no end_date provided we assume the day of yesterday.
+            If clean is true - it will perform basic cleaning operations.
+        """
+        save_partition = True
         date_range = self._get_date_range(start_date, end_date)
 
         for current_date in date_range:
-            key = self.create_object_key(current_date.year, current_date.month, current_date.day)
+            key = self._create_object_key(current_date.year, current_date.month, current_date.day)
+            _ = self._download_single_key(key,save_partition,clean)
+
+        return True  
+
+    def download_history_in_memory(self, start_date:str, end_date:str = None, clean: bool = False ) -> Optional[pl.DataFrame]:
+                         
+        """ Download history between start_date and end_date in format YYYYMMDD in memory.
+            If no end_date provided we assume the day of yesterday.
+            If clean is true - it will perform basic cleaning operations.
+        """
+        df_accumulated = None
+        save_partition = False
+        date_range = self._get_date_range(start_date, end_date)
+
+        for current_date in date_range:
+            key = self._create_object_key(current_date.year, current_date.month, current_date.day)
             df = self._download_single_key(key,save_partition,clean)
 
-
-            if df is not None: 
-                df_accumulated = df if df_accumulated is None else pl.concat([df_accumulated, df]) ## Should mitigate OOM
-
- 
-        if save_disk:
-            filepath = f"{self.datadir}/{self._env_market}/{self._env_endpoint}.parquet"
-            df_accumulated.write_parquet(filepath)
-
-        return None                   
-
-    def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
-        """Fetch trades for a given instrument and date range.
-
-        Ignores weekends and holidays.
-
-        Returns a single DataFrame with all the data combined.
-
-        """
-        dfs_per_day = []
-        current_date = start_date
-        while current_date <= end_date:
-            key = self.create_object_key(current_date.year, current_date.month, current_date.day)
-            df = self._download_parquet(key)
             if df is not None:
-                dfs_per_day.append(self._clean_options_df(df))
-            current_date += dt.timedelta(days=1)
+                df_accumulated = df if df_accumulated is None else pl.concat([df_accumulated,df])
 
-        if dfs_per_day:
-            return pl.concat(dfs_per_day)
+        return df                       
+
+    # def download_trades_parquet(self, start_date: dt.date, end_date: dt.date) -> pl.DataFrame | None:
+    #     """Fetch trades for a given instrument and date range.
+
+    #     Ignores weekends and holidays.
+
+    #     Returns a single DataFrame with all the data combined.
+
+    #     """
+    #     dfs_per_day = []
+    #     current_date = start_date
+    #     while current_date <= end_date:
+    #         key = self.create_object_key(current_date.year, current_date.month, current_date.day)
+    #         df = self._download_parquet(key)
+    #         if df is not None:
+    #             dfs_per_day.append(self._clean_options_df(df))
+    #         current_date += dt.timedelta(days=1)
+
+    #     if dfs_per_day:
+    #         return pl.concat(dfs_per_day)
 
