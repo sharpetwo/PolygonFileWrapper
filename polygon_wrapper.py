@@ -10,6 +10,7 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 import polars as pl
+import pandas as pd
 
 class PolygonMarket(Enum):
     OPTIONS = "us_options_opra"
@@ -323,14 +324,15 @@ class PolygonFileWrapper():
         end_date = self._format_date(end_date)
 
         
-        while start_date <= end_date:
-            key = self.create_object_key(start_date.year, start_date.month, start_date.day)
+        # Generate a range of business days between start_date and end_date
+        date_range = pd.date_range(start=start_date, end=end_date, freq='B')
+
+        for current_date in date_range:
+            key = self.create_object_key(current_date.year, current_date.month, current_date.day)
             df = self._download_single_key(key,save_partition,clean)
 
             if df is not None:
                 dfs_per_day.append(df)
-
-            start_date += dt.timedelta(days=1)
 
         df = pl.concat(dfs_per_day)
         if save_disk:
