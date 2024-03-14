@@ -10,5 +10,8 @@ setup(
     install_requires=[
         'boto3',
         'polars',
+        'pandas',
+        'dateparser'
+
     ]
 )
