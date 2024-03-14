@@ -69,7 +69,6 @@ class PolygonFileWrapper():
     def _get_polygon_endpoint(self) -> str:
         """Get the endpoint value from the environment variable."""
 
-
         env_to_enum = {
             "DAY": PolygonEndpoint.DAY,
             "MINUTES": PolygonEndpoint.MINUTES,
@@ -86,6 +85,7 @@ class PolygonFileWrapper():
     @staticmethod
     def _format_year(year: int) -> int:
         """Format the year value."""
+
         if isinstance(year, int) and 2000 <= year < 2100:
             return year
         else:
@@ -94,6 +94,7 @@ class PolygonFileWrapper():
     @staticmethod
     def _format_month(month: int) -> str:
         """Format the month value."""
+
         if isinstance(month, int) and 1 <= month <= 12:
             return f"{month:02}"
         else:
@@ -241,13 +242,15 @@ class PolygonFileWrapper():
         with BytesIO() as data:
             try:
                 self.s3.download_fileobj(self._base_bucket, key, data)
-            except ClientError:
+                data.seek(0)
+                csv_file = gzip.decompress(data.read())
+                df = pl.read_csv(csv_file)
+                return df                     
+            except ClientError as e:
+                raise(f"Error in _download_parquet: {e}")
                 # Couldn't find a file for a given key
-                return None
-            data.seek(0)
-            csv_file = gzip.decompress(data.read())
-            df = pl.read_csv(csv_file)
-            return df               
+                # return None
+          
         
     def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
                             
