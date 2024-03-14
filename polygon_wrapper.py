@@ -253,6 +253,7 @@ class PolygonFileWrapper():
                             
         df = self._download_parquet(key)
         if df is None:
+            print(f'[+] No data for {key}')
             return None
 
         if clean:
@@ -310,7 +311,10 @@ class PolygonFileWrapper():
         while start_date <= end_date:
             key = self.create_object_key(start_date.year, start_date.month, start_date.day)
             df = self._download_single_key(key,save_partition,clean)
-            dfs_per_day.append(df)
+
+            if df is not None:
+                dfs_per_day.append(df)
+
             start_date += dt.timedelta(days=1)
 
         df = pl.concat(dfs_per_day)
