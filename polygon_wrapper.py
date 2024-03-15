@@ -4,13 +4,14 @@ import dateparser
 from io import BytesIO
 import gzip
 import os
-from enum import Enum 
+from enum import Enum
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 import polars as pl
 import pandas as pd
+
 
 class PolygonMarket(Enum):
     OPTIONS = "us_options_opra"
@@ -19,11 +20,13 @@ class PolygonMarket(Enum):
     FOREX = "global_forex"
     INDEX = "index_placeholder"
 
+
 class PolygonEndpoint(Enum):
     DAY = "day_aggs_v1"
     MINUTES = "minute_aggs_v1"
     QUOTES = "quotes_v1"
     TRADES = "trades_v1"
+
 
 class PolygonFileWrapper():
     def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir = '.'):
@@ -34,54 +37,32 @@ class PolygonFileWrapper():
         self._env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
         self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_ENDPOINT"]
 
-        self.polygon_market = self._get_polygon_market()
-        self.polygon_endpoint = self._get_polygon_endpoint()
+        self.polygon_market = self._get_polygon_market(self._env_market)
+        self.polygon_endpoint = self._get_polygon_endpoint(self._env_endpoint.upper())
 
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]
         self.secret_key = secret_key if secret_key else os.environ["SECRET_KEY"]
-        self.datadir = os.environ["DATADIR"] if os.environ["DATADIR"] else datadir
-
-
+        self.datadir = datadir if datadir else os.environ["DATADIR"]
 
         self.download_path = f'{self.polygon_market}/{self.polygon_endpoint}'
         self.s3 = self._init_session()
 
-
-    def _get_polygon_market(self) -> str:
+    def _get_polygon_market(self, market: str) -> str:
         """Get the market value from the environment variable."""
 
-        env_to_enum = {
-            "OPTIONS": PolygonMarket.OPTIONS,
-            "STOCKS": PolygonMarket.STOCKS,
-            "CRYPTO": PolygonMarket.CRYPTO,
-            "FOREX": PolygonMarket.FOREX,
-            "INDEX": PolygonMarket.INDEX
-        }
-        # Get the enum value, defaulting to None if not found
-        market_enum = env_to_enum.get(self._env_market.upper(), None)
-        if market_enum:
-            return market_enum.value
-        else:
-            raise ValueError(f"Invalid POLYGON_MARKET value: {self._env_market}")    
+        try:
+            return PolygonMarket[market].value
+        except KeyError:
+            raise ValueError(f"Invalid POLYGON_MARKET value: {self._env_market}")
 
-
-    def _get_polygon_endpoint(self) -> str:
+    def _get_polygon_endpoint(self, endpoint: str) -> str:
         """Get the endpoint value from the environment variable."""
 
-        env_to_enum = {
-            "DAY": PolygonEndpoint.DAY,
-            "MINUTES": PolygonEndpoint.MINUTES,
-            "QUOTES": PolygonEndpoint.QUOTES,
-            "TRADES": PolygonEndpoint.TRADES
-        }
-        # Get the enum value, defaulting to None if not found
-        market_enum = env_to_enum.get(self._env_endpoint.upper(), None)
-        if market_enum:
-            return market_enum.value
-        else:
-            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {self._env_endpoint}")
+        try:
+            return PolygonEndpoint[endpoint].value
+        except KeyError:
+            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {endpoint}")
 
-## Work with dates
     @staticmethod
     def _format_year(year: int) -> int:
         """Helper function to format the year value."""
@@ -108,7 +89,7 @@ class PolygonFileWrapper():
             return f"{day:02}"
         else:
             raise ValueError("Day must be an integer between 1 and 31 inclusive")
-        
+
     @staticmethod
     def _format_date(date: str, _str: bool = False) -> Union[str, dt.datetime]:
         """
@@ -119,7 +100,7 @@ class PolygonFileWrapper():
             _str (bool): Flag indicating whether to return a string or datetime object.
 
         Returns:
-            Union[str, datetime.datetime]: The formatted date string in the format "YYYYMMDD" 
+            Union[str, datetime.datetime]: The formatted date string in the format "YYYYMMDD"
                                         or a datetime object.
         """
         try:
@@ -129,8 +110,8 @@ class PolygonFileWrapper():
             _date = dateparser.parse(date)
             if not _date:
                 raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
-            
-            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date   
+
+            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date
 
     @staticmethod
     def _is_date_range_valid(start_date: str,end_date:str):
@@ -139,7 +120,7 @@ class PolygonFileWrapper():
         if not dt.datetime.strptime(start_date,"%Y%m%d") <= dt.datetime.strptime(end_date,"%Y%m%d"):
             raise ValueError("end_date must be greater than start_date")
         else:
-            return True   
+            return True
 
     def _get_date_range(self,start_date:str, end_date:str = None) -> pd.DataFrame :
         """ Helper function returning a formated date range from a start_date and end_date"""
@@ -151,11 +132,11 @@ class PolygonFileWrapper():
         start_date =self._format_date(start_date)
         end_date = self._format_date(end_date)
 
-        
-        # Generate a range of business days between start_date and end_date
-        return pd.date_range(start=start_date, end=end_date, freq='B')              
 
-# Talking to the s3polygon                
+        # Generate a range of business days between start_date and end_date
+        return pd.date_range(start=start_date, end=end_date, freq='B')
+
+# Talking to the s3polygon
 
     def _init_session(self) -> boto3.client:
         """Initialize the S3 session using the provided credentials and configuration."""
@@ -192,7 +173,7 @@ class PolygonFileWrapper():
     def _get_date_from_key(key: str) -> str:
         """Helper function to return the date from a key"""
         return key.split('/')[-1].split('.')[0]
-            
+
     def _create_object_key(self, year: int, month: int, day: int) -> str:
         """Create an object key respecting Polygon name policies."""
         year = self._format_year(year)
@@ -204,7 +185,7 @@ class PolygonFileWrapper():
         """Helper function to get the file path for the parquet file based on the object key."""
         date = self._get_date_from_key(key)
         return f"{self.datadir}/{date}.parquet"
-    
+
     def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
         """Download a list of object partial or total based on parameters year and month."""
         prefix = self._get_prefix(year, month)
@@ -213,7 +194,7 @@ class PolygonFileWrapper():
         contents = [obj.get('Key') for obj in objects.get('Contents', [])]
         if verbose:
             print(contents)
-        return contents    
+        return contents
 
 
 
@@ -229,7 +210,7 @@ class PolygonFileWrapper():
             .with_columns(
                 pl.col("timestamp").dt.convert_time_zone("America/New_York")
             )
-        )      
+        )
 
     def _clean_stocks_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
@@ -242,16 +223,16 @@ class PolygonFileWrapper():
             .with_columns(
                 pl.col("timestamp").dt.convert_time_zone("America/New_York")
             )
-        )          
+        )
 
-    def _clean_df(self, df : pl.DataFrame) ->  pl.DataFrame: 
+    def _clean_df(self, df : pl.DataFrame) ->  pl.DataFrame:
         """ Helper function to clean the dataset based on the dataformat inputed from polygon_market"""
         if self._env_market.lower() == 'stocks':
             return self._clean_stocks_df(df)
         elif self._env_market.lower() == 'options':
             return self._clean_options_df(df)
 
-# Downloads functions 
+# Downloads functions
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
         """Helper function downloading a parquet file from S3, handling errors and return it as a DataFrame."""
         with BytesIO() as data:
@@ -260,7 +241,7 @@ class PolygonFileWrapper():
                 data.seek(0)
                 csv_file = gzip.decompress(data.read())
                 df = pl.read_csv(csv_file)
-                return df                     
+                return df
             except ClientError as e:
                 error_code = e.response['Error']['Code']
                 date = self._get_date_from_key(key)
@@ -269,8 +250,8 @@ class PolygonFileWrapper():
                     return None
                 else:
                     print(f"Error in _download_parquet for date {date}: {e}")
-                    raise 
-        
+                    raise
+
     def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
         """ Helper function going through the necessary steps for downloading and processing of single key."""
         df = self._download_parquet(key)
@@ -285,18 +266,18 @@ class PolygonFileWrapper():
             print(f"[+] Saving partition at: {filepath}")
             df.write_parquet(filepath, compression='snappy')
 
-        return df 
+        return df
 
-    def download_single_date(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:                             
+    def download_single_date(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:
         """Download data from a single file specified by a date str format YYYYMMDD.
-        If save_partition is true - it will save in the datadir. 
+        If save_partition is true - it will save in the datadir.
         """
         date = self._format_date(date)
         key = self._create_object_key(date.year, date.month, date.day)
-        return self._download_single_key(key,save_partition,clean)                  
+        return self._download_single_key(key,save_partition,clean)
 
     def download_history_on_disk(self, start_date:str, end_date:str = None, clean: bool = False) -> Optional[pl.DataFrame]:
-                         
+
         """ Download history between start_date and end_date in format YYYYMMDD and save in the datadir.
             If no end_date provided we assume the day of yesterday.
             If clean is true - it will perform basic cleaning operations.
@@ -308,10 +289,10 @@ class PolygonFileWrapper():
             key = self._create_object_key(current_date.year, current_date.month, current_date.day)
             _ = self._download_single_key(key,save_partition,clean)
 
-        return True  
+        return True
 
     def download_history_in_memory(self, start_date:str, end_date:str = None, clean: bool = False ) -> Optional[pl.DataFrame]:
-                         
+
         """ Download history between start_date and end_date in format YYYYMMDD in memory.
             If no end_date provided we assume the day of yesterday.
             If clean is true - it will perform basic cleaning operations.
