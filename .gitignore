@@ -3,3 +3,4 @@
 polygon_wrapper.egg-info/
 __pycache__/
 options/
+*.parquet
