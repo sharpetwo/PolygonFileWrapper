@@ -94,7 +94,7 @@ class PolygonFileWrapper():
         self._env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
         self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_ENDPOINT"]
 
-        self.polygon_market = self._get_polygon_market(self._env_market)
+        self.polygon_market = self._get_polygon_market(self._env_market.upper())
         self.polygon_endpoint = self._get_polygon_endpoint(self._env_endpoint.upper())
 
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]

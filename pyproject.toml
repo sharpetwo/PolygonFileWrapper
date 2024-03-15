@@ -6,6 +6,9 @@ dependencies = ["boto3", "polars", "dateparser", "pandas"]
 [project.optional-dependencies]
 dev = ["pytest"]
 
+[project.scripts]
+polygon_download = "cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 
