@@ -28,6 +28,49 @@ class PolygonEndpoint(Enum):
     TRADES = "trades_v1"
 
 
+def clean_options_trades(df: pl.DataFrame) -> pl.DataFrame:
+    return (
+        df
+        .with_columns(
+            pl.from_epoch(pl.col("sip_timestamp"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
+        )
+        .with_columns(
+            pl.col("timestamp").dt.convert_time_zone("America/New_York")
+        )
+    )
+
+def clean_options_bars(df: pl.DataFrame) -> pl.DataFrame:
+    return (
+        df
+        .with_columns(
+            pl.from_epoch(pl.col("window_start"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
+        )
+        .with_columns(
+            pl.col("timestamp").dt.convert_time_zone("America/New_York")
+        )
+    )
+
+
+def clean_stock_trades(df: pl.DataFrame) -> pl.DataFrame:
+    return (
+        df
+        .with_columns(
+            pl.from_epoch(pl.col("window_start"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
+        )
+        .with_columns(
+            pl.col("timestamp").dt.convert_time_zone("America/New_York")
+        )
+    )
+
+
+CLEANING_FUNCTIONS = {
+    (PolygonMarket.OPTIONS, PolygonEndpoint.TRADES): clean_options_trades,
+    (PolygonMarket.OPTIONS, PolygonEndpoint.MINUTES): clean_options_bars,
+    (PolygonMarket.OPTIONS, PolygonEndpoint.DAY): clean_options_bars,
+    (PolygonMarket.STOCKS, PolygonEndpoint.TRADES): clean_stock_trades,
+}
+
+
 def format_year(year: int) -> int:
     """Helper function to format the year value."""
 
@@ -176,39 +219,6 @@ class PolygonFileWrapper():
             print(contents)
         return contents
 
-    def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Basic data cleaning for a DataFrame containing options trades."""
-
-        return (
-            df
-            .with_columns(
-                pl.from_epoch(pl.col("sip_timestamp"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
-            )
-            .with_columns(
-                pl.col("timestamp").dt.convert_time_zone("America/New_York")
-            )
-        )
-
-    def _clean_stocks_df(self, df: pl.DataFrame) -> pl.DataFrame:
-        """Basic data cleaning for a DataFrame containing options trades."""
-
-        return (
-            df
-            .with_columns(
-                pl.from_epoch(pl.col("window_start"), time_unit="ns").dt.replace_time_zone("UTC").alias("timestamp"),
-            )
-            .with_columns(
-                pl.col("timestamp").dt.convert_time_zone("America/New_York")
-            )
-        )
-
-    def _clean_df(self, df : pl.DataFrame, market: PolygonMarket) ->  pl.DataFrame:
-        """ Helper function to clean the dataset based on the dataformat inputed from polygon_market"""
-        if market == PolygonMarket.STOCKS:
-            return self._clean_stocks_df(df)
-        elif market == PolygonMarket.OPTIONS:
-            return self._clean_options_df(df)
-
     def _download_gzipped_csv(self, key: str) -> Optional[pl.DataFrame]:
         with BytesIO() as data:
             try:
@@ -227,15 +237,12 @@ class PolygonFileWrapper():
                     print(f"Error in _download_parquet for date {date}: {e}")
                     raise
 
-    def _download_single_key(self, key: str, clean: bool, market: PolygonMarket) -> Optional[pl.DataFrame]:
+    def _download_single_key(self, key: str) -> Optional[pl.DataFrame]:
         """Download single flat file for a given key."""
 
         df = self._download_gzipped_csv(key)
         if df is None:
             return None
-
-        if clean:
-            df = self._clean_df(df, market)
         return df
 
     def download_and_save_options(self,
@@ -248,9 +255,7 @@ class PolygonFileWrapper():
         """Download options data and save to disk."""
 
         df = self.download_options(endpoint, start_date, end_date, clean)
-        if len(df) > 0:
-            print(df.head())
-            print(df.tail())
+        if df is not None and len(df) > 0:
             first_date = df.item(0, "timestamp").date()
             last_date = df.item(-1, "timestamp").date()
             fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
@@ -277,7 +282,10 @@ class PolygonFileWrapper():
                 current_date.month,
                 current_date.day
             )
-            df = self._download_single_key(key, clean, PolygonMarket.OPTIONS)
+            df = self._download_single_key(key)
+            if clean and df is not None:
+                cleaning_f = CLEANING_FUNCTIONS[(PolygonMarket.OPTIONS, endpoint)]
+                df = cleaning_f(df)
 
             if df is not None:
                 dfs_list.append(df)

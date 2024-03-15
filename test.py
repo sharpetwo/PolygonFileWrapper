@@ -26,3 +26,25 @@ def test_download_options_trades_for_date_range():
         PolygonEndpoint.TRADES, dt.date(2024, 1, 30), dt.date(2024, 1, 31)
     )
     assert len(df) > 1_000_000
+
+
+def test_download_options_minute_bars_for_date_range():
+    wrapper = PolygonFileWrapper()
+    df = wrapper.download_options(
+        PolygonEndpoint.MINUTES,
+        dt.date(2024, 1, 30),
+        dt.date(2024, 1, 31)
+    )
+    assert len(df) > 1_000_000
+
+
+def test_download_options_daily_bars_for_date_range():
+    wrapper = PolygonFileWrapper()
+    df = wrapper.download_options(
+        PolygonEndpoint.DAY,
+        dt.date(2024, 1, 30),
+        dt.date(2024, 1, 31)
+    )
+    assert len(df) > 1_000
+
+

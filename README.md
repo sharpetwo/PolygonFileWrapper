@@ -36,6 +36,11 @@ Example command to do the same as above, but save the files as parquet into a `o
     polygon_download --endpoint trades --market options --start_date 20240201 --end_date 20240202 --output_dir options_trades/
 
 
+Download options daily bars for entire February 2024:
+
+    polygon_download --endpoint day --market options --start_date 20240201 --end_date 20240229 --output_dir testdir
+
+
 #### Available data
 
 Define two env variables `POLYGON_MARKET` and `POLYGON_ENDPOINT` depending on the use cases:
