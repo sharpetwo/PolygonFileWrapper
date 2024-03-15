@@ -1,10 +1,10 @@
-from typing import Optional, List
 import datetime as dt
 import dateparser
-from io import BytesIO
-import gzip
-import os
 from enum import Enum
+import gzip
+from io import BytesIO
+import os
+from typing import Optional, List
 
 import boto3
 from botocore.config import Config
@@ -76,61 +76,33 @@ def parse_date(date: str) -> dt.date:
         return _date
 
 
-def is_date_range_valid(start_date: str, end_date: str):
+def is_date_range_valid(start_date: dt.date, end_date: dt.date):
     """ Helper function checking if the start_date < end_date."""
 
-    if not parse_date(start_date) <= parse_date(end_date):
+    if not start_date <= end_date:
         raise ValueError("end_date must be greater than start_date")
     else:
         return True
 
 
 class PolygonFileWrapper():
-    def __init__(self, polygon_market=None, polygon_endpoint=None, access_key=None, secret_key=None, datadir = '.'):
+    def __init__(self, access_key=None, secret_key=None):
         self._base_bucket = 'flatfiles'
         self._endpoint_url = 'https://files.polygon.io'
         self._type = 's3'
         self._signature_version = 's3v4'
-        self._env_market = polygon_market if polygon_market else os.environ["POLYGON_MARKET"]
-        self._env_endpoint = polygon_endpoint if polygon_endpoint else os.environ["POLYGON_ENDPOINT"]
-
-        self.polygon_market = self._get_polygon_market(self._env_market.upper())
-        self.polygon_endpoint = self._get_polygon_endpoint(self._env_endpoint.upper())
-
         self.access_key = access_key if access_key else os.environ["ACCESS_KEY"]
         self.secret_key = secret_key if secret_key else os.environ["SECRET_KEY"]
-        self.datadir = datadir if datadir else os.environ["DATADIR"]
 
-        self.download_path = f'{self.polygon_market}/{self.polygon_endpoint}'
         self.s3 = self._init_session()
 
-    def _get_polygon_market(self, market: str) -> str:
-        """Get the market value from the environment variable."""
-
-        try:
-            return PolygonMarket[market].value
-        except KeyError:
-            raise ValueError(f"Invalid POLYGON_MARKET value: {self._env_market}")
-
-    def _get_polygon_endpoint(self, endpoint: str) -> str:
-        """Get the endpoint value from the environment variable."""
-
-        try:
-            return PolygonEndpoint[endpoint].value
-        except KeyError:
-            raise ValueError(f"Invalid POLYGON_ENDPOINT value: {endpoint}")
-
-    def _get_date_range(self, start_date: str, end_date: str | None = None) -> pd.DataFrame :
-        """ Helper function returning a formated date range from a start_date and end_date"""
+    def _get_date_range(self, start_date: dt.date, end_date: dt.date | None = None) -> pd.DatetimeIndex :
+        """Helper function returning a formated date range from a start_date and end_date"""
 
         if not end_date:
-            end_date = (dt.date.today() - dt.timedelta(days=1)).strftime('%Y%m%d')
+            end_date = dt.date.today() - dt.timedelta(days=1)
 
         is_date_range_valid(start_date, end_date)
-        start_date = parse_date(start_date)
-        end_date = parse_date(end_date)
-
-        # Generate a range of business days between start_date and end_date
         return pd.date_range(start=start_date, end=end_date, freq='B')
 
     def _init_session(self) -> boto3.client:
@@ -148,17 +120,23 @@ class PolygonFileWrapper():
         )
         return s3
 
-    def _get_prefix(self, year: Optional[int] = None, month: Optional[int] = None) -> str:
+    def _get_prefix(self,
+                    market: PolygonMarket,
+                    endpoint: PolygonEndpoint,
+                    year: Optional[int] = None,
+                    month: Optional[int] = None
+                    ) -> str:
         """Helper function to build the download path (prefix) needed after the bucket name."""
         year = format_year(year) if year else None
         month = format_month(month) if month else None
 
+        path_root = f"{market.value}/{endpoint.value}"
         if not year and not month:
-            return self.download_path
+            return path_root
         elif year and not month:
-            return f'{self.download_path}/{year}'
+            return f'{path_root}/{year}'
         elif year and month:
-            return f'{self.download_path}/{year}/{month}'
+            return f'{path_root}/{year}/{month}'
         else:
             raise ValueError("Month cannot come without a year")
 
@@ -167,21 +145,30 @@ class PolygonFileWrapper():
         """Helper function to return the date from a key"""
         return key.split('/')[-1].split('.')[0]
 
-    def _create_object_key(self, year: int, month: int, day: int) -> str:
+    def _create_object_key(self,
+                           market: PolygonMarket,
+                           endpoint: PolygonEndpoint,
+                           year: int,
+                           month: int,
+                           day: int
+                           ) -> str:
+
         """Create an object key respecting Polygon name policies."""
         year = format_year(year)
         month = format_month(month)
         day = format_day(day)
-        return f'{self.download_path}/{year}/{month}/{year}-{month}-{day}.csv.gz'
+        return f'{market.value}/{endpoint.value}/{year}/{month}/{year}-{month}-{day}.csv.gz'
 
-    def _get_filepath_parquet(self, key: str) -> str:
-        """Helper function to get the file path for the parquet file based on the object key."""
-        date = self._get_date_from_key(key)
-        return f"{self.datadir}/{date}.parquet"
-
-    def get_list_objects(self, year: Optional[int] = None, month: Optional[int] = None, verbose: bool = False) -> List[str]:
+    def get_list_objects(self,
+                         market: PolygonMarket,
+                         endpoint: PolygonEndpoint,
+                         year: Optional[int] = None,
+                         month: Optional[int] = None,
+                         verbose: bool = False
+                         ) -> List[str]:
         """Download a list of object partial or total based on parameters year and month."""
-        prefix = self._get_prefix(year, month)
+
+        prefix = self._get_prefix(market, endpoint, year, month)
         print(f'[+] Listing from {self._base_bucket}/{prefix}')
         objects = self.s3.list_objects(Bucket=self._base_bucket, Prefix=prefix)
         contents = [obj.get('Key') for obj in objects.get('Contents', [])]
@@ -215,15 +202,14 @@ class PolygonFileWrapper():
             )
         )
 
-    def _clean_df(self, df : pl.DataFrame) ->  pl.DataFrame:
+    def _clean_df(self, df : pl.DataFrame, market: PolygonMarket) ->  pl.DataFrame:
         """ Helper function to clean the dataset based on the dataformat inputed from polygon_market"""
-        if self._env_market.lower() == 'stocks':
+        if market == PolygonMarket.STOCKS:
             return self._clean_stocks_df(df)
-        elif self._env_market.lower() == 'options':
+        elif market == PolygonMarket.OPTIONS:
             return self._clean_options_df(df)
 
-    def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
-        """Helper function downloading a parquet file from S3, handling errors and return it as a DataFrame."""
+    def _download_gzipped_csv(self, key: str) -> Optional[pl.DataFrame]:
         with BytesIO() as data:
             try:
                 self.s3.download_fileobj(self._base_bucket, key, data)
@@ -241,57 +227,60 @@ class PolygonFileWrapper():
                     print(f"Error in _download_parquet for date {date}: {e}")
                     raise
 
-    def _download_single_key(self, key: str, save_partition: bool = True,  clean: bool = False ) -> Optional[pl.DataFrame]:
-        """ Helper function going through the necessary steps for downloading and processing of single key."""
-        df = self._download_parquet(key)
+    def _download_single_key(self, key: str, clean: bool, market: PolygonMarket) -> Optional[pl.DataFrame]:
+        """Download single flat file for a given key."""
+
+        df = self._download_gzipped_csv(key)
         if df is None:
             return None
 
         if clean:
-            df = self._clean_df(df)
-
-        if save_partition:
-            filepath = self._get_filepath_parquet(key)
-            print(f"[+] Saving partition at: {filepath}")
-            df.write_parquet(filepath, compression='snappy')
-
+            df = self._clean_df(df, market)
         return df
 
-    def download_single_date(self, date: str, save_partition: bool = True ,clean: bool = False) -> Optional[pl.DataFrame]:
-        """Download data from a single file specified by a date str format YYYYMMDD.
-        If save_partition is true - it will save in the datadir.
-        """
-        date = parse_date(date)
-        key = self._create_object_key(date.year, date.month, date.day)
-        return self._download_single_key(key,save_partition,clean)
+    def download_and_save_options(self,
+                                  endpoint: PolygonEndpoint,
+                                  start_date: dt.date,
+                                  end_date: dt.date | None = None,
+                                  dir: str | None = ".",
+                                  clean: bool = True
+                                  ):
+        """Download options data and save to disk."""
 
-    def download_history_on_disk(self, start_date: str, end_date: str = None, clean: bool = False):
-        """ Download history between start_date and end_date in format YYYYMMDD and save in the datadir.
-            If no end_date provided we assume the day of yesterday.
-            If clean is true - it will perform basic cleaning operations.
-        """
-        save_partition = True
+        df = self.download_options(endpoint, start_date, end_date, clean)
+        if len(df) > 0:
+            print(df.head())
+            print(df.tail())
+            first_date = df.item(0, "timestamp").date()
+            last_date = df.item(-1, "timestamp").date()
+            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+            df.write_parquet(os.path.join(dir, fname))
+
+    def download_options(
+            self,
+            endpoint: PolygonEndpoint,
+            start_date: dt.date,
+            end_date: dt.date | None = None,
+            clean: bool = True
+        ) -> Optional[pl.DataFrame]:
+
+        """Download options data for a given date range."""
+
+        dfs_list = []
         date_range = self._get_date_range(start_date, end_date)
 
         for current_date in date_range:
-            key = self._create_object_key(current_date.year, current_date.month, current_date.day)
-            _ = self._download_single_key(key, save_partition, clean)
-
-    def download_history_in_memory(self, start_date:str, end_date:str = None, clean: bool = False ) -> Optional[pl.DataFrame]:
-
-        """ Download history between start_date and end_date in format YYYYMMDD in memory.
-            If no end_date provided we assume the day of yesterday.
-            If clean is true - it will perform basic cleaning operations.
-        """
-        df_accumulated = None
-        save_partition = False
-        date_range = self._get_date_range(start_date, end_date)
-
-        for current_date in date_range:
-            key = self._create_object_key(current_date.year, current_date.month, current_date.day)
-            df = self._download_single_key(key,save_partition,clean)
+            key = self._create_object_key(
+                PolygonMarket.OPTIONS,
+                endpoint,
+                current_date.year,
+                current_date.month,
+                current_date.day
+            )
+            df = self._download_single_key(key, clean, PolygonMarket.OPTIONS)
 
             if df is not None:
-                df_accumulated = df if df_accumulated is None else pl.concat([df_accumulated,df])
+                dfs_list.append(df)
 
-        return df
+        complete = pl.concat(dfs_list)
+        return complete
