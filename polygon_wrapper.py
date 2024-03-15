@@ -91,27 +91,25 @@ class PolygonFileWrapper():
             raise ValueError("Day must be an integer between 1 and 31 inclusive")
 
     @staticmethod
-    def _format_date(date: str, _str: bool = False) -> Union[str, dt.datetime]:
+    def _format_date(date: str) -> dt.date:
         """
-        Helper function to format date as "YYYYMMDD" if not already formatted.
+        Format date as "YYYYMMDD".
 
         Args:
             date (str): The date string to format.
-            _str (bool): Flag indicating whether to return a string or datetime object.
 
         Returns:
-            Union[str, datetime.datetime]: The formatted date string in the format "YYYYMMDD"
-                                        or a datetime object.
+            datetime.date: The formatted date.
+
         """
         try:
-            _date = dt.datetime.strptime(date, '%Y%m%d')
-            return date if _str else _date
+            return dt.datetime.strptime(date, '%Y%m%d')
         except ValueError:
             _date = dateparser.parse(date)
             if not _date:
                 raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
 
-            return dt.datetime.strftime(_date, "%Y%m%d") if _str else _date
+            return _date
 
     @staticmethod
     def _is_date_range_valid(start_date: str,end_date:str):
