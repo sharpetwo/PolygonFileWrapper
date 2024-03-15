@@ -1,4 +1,4 @@
-from typing import Optional, List, Union
+from typing import Optional, List
 import datetime as dt
 import dateparser
 from io import BytesIO
@@ -26,6 +26,63 @@ class PolygonEndpoint(Enum):
     MINUTES = "minute_aggs_v1"
     QUOTES = "quotes_v1"
     TRADES = "trades_v1"
+
+
+def format_year(year: int) -> int:
+    """Helper function to format the year value."""
+
+    if isinstance(year, int) and 2000 <= year < 2100:
+        return year
+    else:
+        raise ValueError("Year must be an integer between 2000 and 2099 inclusive")
+
+
+def format_month(month: int) -> str:
+    """Helper function to format the month value."""
+
+    if isinstance(month, int) and 1 <= month <= 12:
+        return f"{month:02}"
+    else:
+        raise ValueError("Month must be an integer between 1 and 12 inclusive")
+
+
+def format_day(day: int) -> str:
+    """Helper function to format the day value."""
+
+    if isinstance(day, int) and 1 <= day <= 31:
+        return f"{day:02}"
+    else:
+        raise ValueError("Day must be an integer between 1 and 31 inclusive")
+
+
+def parse_date(date: str) -> dt.date:
+    """
+    Format date as "YYYYMMDD".
+
+    Args:
+        date (str): The date string to format.
+
+    Returns:
+        datetime.date: The formatted date.
+
+    """
+    try:
+        return dt.datetime.strptime(date, '%Y%m%d')
+    except ValueError:
+        _date = dateparser.parse(date)
+        if not _date:
+            raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
+
+        return _date
+
+
+def is_date_range_valid(start_date: str, end_date: str):
+    """ Helper function checking if the start_date < end_date."""
+
+    if not parse_date(start_date) <= parse_date(end_date):
+        raise ValueError("end_date must be greater than start_date")
+    else:
+        return True
 
 
 class PolygonFileWrapper():
@@ -63,78 +120,18 @@ class PolygonFileWrapper():
         except KeyError:
             raise ValueError(f"Invalid POLYGON_ENDPOINT value: {endpoint}")
 
-    @staticmethod
-    def _format_year(year: int) -> int:
-        """Helper function to format the year value."""
-
-        if isinstance(year, int) and 2000 <= year < 2100:
-            return year
-        else:
-            raise ValueError("Year must be an integer between 2000 and 2099 inclusive")
-
-    @staticmethod
-    def _format_month(month: int) -> str:
-        """Helper function to format the month value."""
-
-        if isinstance(month, int) and 1 <= month <= 12:
-            return f"{month:02}"
-        else:
-            raise ValueError("Month must be an integer between 1 and 12 inclusive")
-
-    @staticmethod
-    def _format_day(day: int) -> str:
-        """Helper function to format the day value."""
-
-        if isinstance(day, int) and 1 <= day <= 31:
-            return f"{day:02}"
-        else:
-            raise ValueError("Day must be an integer between 1 and 31 inclusive")
-
-    @staticmethod
-    def _format_date(date: str) -> dt.date:
-        """
-        Format date as "YYYYMMDD".
-
-        Args:
-            date (str): The date string to format.
-
-        Returns:
-            datetime.date: The formatted date.
-
-        """
-        try:
-            return dt.datetime.strptime(date, '%Y%m%d')
-        except ValueError:
-            _date = dateparser.parse(date)
-            if not _date:
-                raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
-
-            return _date
-
-    @staticmethod
-    def _is_date_range_valid(start_date: str,end_date:str):
-        """ Helper function checking if the start_date < end_date."""
-
-        if not dt.datetime.strptime(start_date,"%Y%m%d") <= dt.datetime.strptime(end_date,"%Y%m%d"):
-            raise ValueError("end_date must be greater than start_date")
-        else:
-            return True
-
-    def _get_date_range(self,start_date:str, end_date:str = None) -> pd.DataFrame :
+    def _get_date_range(self, start_date: str, end_date: str | None = None) -> pd.DataFrame :
         """ Helper function returning a formated date range from a start_date and end_date"""
 
         if not end_date:
-            end_date = (dt.datetime.now() - dt.timedelta(days=1)).strftime('%Y%m%d')
+            end_date = (dt.date.today() - dt.timedelta(days=1)).strftime('%Y%m%d')
 
-        self._is_date_range_valid(start_date,end_date)
-        start_date =self._format_date(start_date)
-        end_date = self._format_date(end_date)
-
+        is_date_range_valid(start_date, end_date)
+        start_date = parse_date(start_date)
+        end_date = parse_date(end_date)
 
         # Generate a range of business days between start_date and end_date
         return pd.date_range(start=start_date, end=end_date, freq='B')
-
-# Talking to the s3polygon
 
     def _init_session(self) -> boto3.client:
         """Initialize the S3 session using the provided credentials and configuration."""
@@ -146,15 +143,15 @@ class PolygonFileWrapper():
         # Create a client with your session and specify the endpoint
         s3 = session.client(
             self._type,
-            endpoint_url= self._endpoint_url,
+            endpoint_url=self._endpoint_url,
             config=Config(signature_version=self._signature_version),
         )
         return s3
 
     def _get_prefix(self, year: Optional[int] = None, month: Optional[int] = None) -> str:
         """Helper function to build the download path (prefix) needed after the bucket name."""
-        year = self._format_year(year) if year else None
-        month = self._format_month(month) if month else None
+        year = format_year(year) if year else None
+        month = format_month(month) if month else None
 
         if not year and not month:
             return self.download_path
@@ -165,8 +162,6 @@ class PolygonFileWrapper():
         else:
             raise ValueError("Month cannot come without a year")
 
-
-# Work with keys and filename
     @staticmethod
     def _get_date_from_key(key: str) -> str:
         """Helper function to return the date from a key"""
@@ -174,9 +169,9 @@ class PolygonFileWrapper():
 
     def _create_object_key(self, year: int, month: int, day: int) -> str:
         """Create an object key respecting Polygon name policies."""
-        year = self._format_year(year)
-        month = self._format_month(month)
-        day = self._format_day(day)
+        year = format_year(year)
+        month = format_month(month)
+        day = format_day(day)
         return f'{self.download_path}/{year}/{month}/{year}-{month}-{day}.csv.gz'
 
     def _get_filepath_parquet(self, key: str) -> str:
@@ -194,9 +189,6 @@ class PolygonFileWrapper():
             print(contents)
         return contents
 
-
-
-# Basic Cleaning functions
     def _clean_options_df(self, df: pl.DataFrame) -> pl.DataFrame:
         """Basic data cleaning for a DataFrame containing options trades."""
 
@@ -230,7 +222,6 @@ class PolygonFileWrapper():
         elif self._env_market.lower() == 'options':
             return self._clean_options_df(df)
 
-# Downloads functions
     def _download_parquet(self, key: str) -> Optional[pl.DataFrame]:
         """Helper function downloading a parquet file from S3, handling errors and return it as a DataFrame."""
         with BytesIO() as data:
@@ -270,12 +261,11 @@ class PolygonFileWrapper():
         """Download data from a single file specified by a date str format YYYYMMDD.
         If save_partition is true - it will save in the datadir.
         """
-        date = self._format_date(date)
+        date = parse_date(date)
         key = self._create_object_key(date.year, date.month, date.day)
         return self._download_single_key(key,save_partition,clean)
 
-    def download_history_on_disk(self, start_date:str, end_date:str = None, clean: bool = False) -> Optional[pl.DataFrame]:
-
+    def download_history_on_disk(self, start_date: str, end_date: str = None, clean: bool = False):
         """ Download history between start_date and end_date in format YYYYMMDD and save in the datadir.
             If no end_date provided we assume the day of yesterday.
             If clean is true - it will perform basic cleaning operations.
@@ -285,9 +275,7 @@ class PolygonFileWrapper():
 
         for current_date in date_range:
             key = self._create_object_key(current_date.year, current_date.month, current_date.day)
-            _ = self._download_single_key(key,save_partition,clean)
-
-        return True
+            _ = self._download_single_key(key, save_partition, clean)
 
     def download_history_in_memory(self, start_date:str, end_date:str = None, clean: bool = False ) -> Optional[pl.DataFrame]:
 
