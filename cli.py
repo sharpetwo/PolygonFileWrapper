@@ -1,6 +1,7 @@
 import argparse
+import datetime as dt
 
-from polygon_wrapper import PolygonFileWrapper
+from polygon_wrapper import PolygonEndpoint, PolygonFileWrapper
 
 
 def main():
@@ -31,9 +32,8 @@ def main():
     )
     args = parser.parse_args()
 
-    wrapper = PolygonFileWrapper(
-        polygon_market=args.market,
-        polygon_endpoint=args.endpoint,
-        datadir=args.output_dir
-    )
-    wrapper.download_history_on_disk(args.start_date, args.end_date, clean=True)
+    wrapper = PolygonFileWrapper()
+    endpoint = PolygonEndpoint[args.endpoint.upper()]
+    start_date = dt.datetime.strptime(args.start_date, "%Y%m%d").date()
+    end_date = dt.datetime.strptime(args.end_date, "%Y%m%d").date() if args.end_date else None
+    wrapper.download_and_save_options(endpoint, start_date, end_date, dir=args.output_dir, clean=True)

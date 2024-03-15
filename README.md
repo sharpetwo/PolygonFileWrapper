@@ -22,21 +22,23 @@ For brevity, we will assume `ACCESS_KEY` and `SECRET_KEY` are defined in the env
 Example code that downloads options trades for 2 days and returns a Polars DataFrame:
 
 ```python
-from polygon_wrapper import PolygonFileWrapper, PolygonEndpoint, PolygonMarket
+from polygon_wrapper import PolygonFileWrapper, PolygonEndpoint
 
-wrapper = PolygonFileWrapper(
-    polygon_market=PolygonMarket.OPTIONS,
-    polygon_endpoint=PolygonEndpoint.TRADES
-)
+wrapper = PolygonFileWrapper()
 
-start_date = "20240201"
-end_date = "20240202"
-df = wrapper.download_history_in_memory(start_date, end_date)
+start_date = dt.date(2024, 2, 1)
+end_date = dt.date(2024, 2, 2)
+df = wrapper.download_options(PolygonEndpoint.TRADES, start_date, end_date)
 ```
 
 Example command to do the same as above, but save the files as parquet into a `options_trades` folder:
 
     polygon_download --endpoint trades --market options --start_date 20240201 --end_date 20240202 --output_dir options_trades/
+
+
+Download options daily bars for entire February 2024:
+
+    polygon_download --endpoint day --market options --start_date 20240201 --end_date 20240229 --output_dir testdir
 
 
 #### Available data
