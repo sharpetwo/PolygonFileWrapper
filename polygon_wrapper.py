@@ -237,6 +237,7 @@ class PolygonFileWrapper():
                     return None
                 if error_code == '403':
                     print(f"403 - Forbidden for key - {key}")
+                    return None
                 else:
                     print(f"Error in _download_parquet for date {key}: {e}")
                     raise
@@ -249,21 +250,7 @@ class PolygonFileWrapper():
             return None
         return df
 
-    def download_and_save_options(self,
-                                  endpoint: PolygonEndpoint,
-                                  start_date: dt.date,
-                                  end_date: dt.date | None = None,
-                                  dir: str | None = ".",
-                                  clean: bool = True
-                                  ):
-        """Download options data and save to disk."""
 
-        df = self.download_options(endpoint, start_date, end_date, clean)
-        if df is not None and len(df) > 0:
-            first_date = df.item(0, "timestamp").date()
-            last_date = df.item(-1, "timestamp").date()
-            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
-            df.write_parquet(os.path.join(dir, fname))
 
     def download_options(
             self,
@@ -297,22 +284,42 @@ class PolygonFileWrapper():
         complete = pl.concat(dfs_list)
         return complete
     
-    def download_and_save_stocks(self,
-                                  endpoint: PolygonEndpoint,
-                                  start_date: dt.date,
-                                  end_date: dt.date | None = None,
-                                  dir: str | None = ".",
-                                  clean: bool = True
-                                  ):
-        """Download options data and save to disk."""
+    # def download_and_save_options(self,
+    #                               endpoint: PolygonEndpoint,
+    #                               start_date: dt.date,
+    #                               end_date: dt.date | None = None,
+    #                               dir: str | None = ".",
+    #                               clean: bool = True
+    #                               ):
+    #     """Download options data and save to disk."""
 
-        df = self.download_stocks(endpoint, start_date, end_date, clean)
-        if df is not None and len(df) > 0:
-            first_date = df.item(0, "timestamp").date()
-            last_date = df.item(-1, "timestamp").date()
-            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
-            df.write_parquet(os.path.join(dir, fname))    
+    #     df = self.download_options(endpoint, start_date, end_date, clean)
+    #     if df is not None and len(df) > 0:
+    #         first_date = df.item(0, "timestamp").date()
+    #         last_date = df.item(-1, "timestamp").date()
+    #         fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+    #         df.write_parquet(os.path.join(dir, fname))    
     
+    # def download_and_save_stocks(self,
+    #                               endpoint: PolygonEndpoint,
+    #                               start_date: dt.date,
+    #                               end_date: dt.date | None = None,
+    #                               dir: str | None = ".",
+    #                               clean: bool = True
+    #                               ):
+    #     """Download options data and save to disk."""
+
+    #     df = self.download_stocks(endpoint, start_date, end_date, clean)
+    #     if df is not None and len(df) > 0:
+    #         first_date = df.item(0, "timestamp").date()
+    #         last_date = df.item(-1, "timestamp").date()
+    #         fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+    #         df.write_parquet(os.path.join(dir, fname))    
+    
+
+    # Indeed complicated to manage at the library level -> I need to snappy which may not be the case for everyone ...
+
+
     def download_stocks(
             self,
             endpoint: PolygonEndpoint,
