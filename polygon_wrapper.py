@@ -227,7 +227,7 @@ class PolygonFileWrapper():
             self,
             endpoint: PolygonEndpoint,
             start_date: dt.date,
-            end_date: dt.date | None = None,
+            end_date: dt.date ,
             clean: bool = True
         ) -> Optional[pl.DataFrame]:
 
@@ -293,7 +293,7 @@ class PolygonFileWrapper():
     def download_and_save_options(self,
                                   endpoint: PolygonEndpoint,
                                   start_date: dt.date,
-                                  end_date: dt.date | None = None,
+                                  end_date: dt.date ,
                                   dir: str | None = ".",
                                   clean: bool = True
                                   ):
@@ -309,7 +309,7 @@ class PolygonFileWrapper():
     def download_and_save_stocks(self,
                                   endpoint: PolygonEndpoint,
                                   start_date: dt.date,
-                                  end_date: dt.date | None = None,
+                                  end_date: dt.date ,
                                   dir: str | None = ".",
                                   clean: bool = True
                                   ):
