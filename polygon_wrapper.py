@@ -233,10 +233,12 @@ class PolygonFileWrapper():
                 error_code = e.response['Error']['Code']
                 date = self._get_date_from_key(key)
                 if error_code == '404':
-                    print(f"404 - File not found for date {date} ")
+                    print(f"404 - File not found for key - {key} ")
                     return None
+                if error_code == '403':
+                    print(f"403 - Forbidden for key - {key}")
                 else:
-                    print(f"Error in _download_parquet for date {date}: {e}")
+                    print(f"Error in _download_parquet for date {key}: {e}")
                     raise
 
     def _download_single_key(self, key: str) -> Optional[pl.DataFrame]:
