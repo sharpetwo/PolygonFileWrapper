@@ -68,6 +68,8 @@ CLEANING_FUNCTIONS = {
     (PolygonMarket.OPTIONS, PolygonEndpoint.MINUTES): clean_options_bars,
     (PolygonMarket.OPTIONS, PolygonEndpoint.DAY): clean_options_bars,
     (PolygonMarket.STOCKS, PolygonEndpoint.TRADES): clean_stock_trades,
+    (PolygonMarket.STOCKS, PolygonEndpoint.MINUTES): clean_stock_trades,
+    (PolygonMarket.STOCKS, PolygonEndpoint.DAY): clean_stock_trades,
 }
 
 
