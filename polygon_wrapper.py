@@ -292,3 +292,51 @@ class PolygonFileWrapper():
 
         complete = pl.concat(dfs_list)
         return complete
+    
+    def download_and_save_stocks(self,
+                                  endpoint: PolygonEndpoint,
+                                  start_date: dt.date,
+                                  end_date: dt.date | None = None,
+                                  dir: str | None = ".",
+                                  clean: bool = True
+                                  ):
+        """Download options data and save to disk."""
+
+        df = self.download_stocks(endpoint, start_date, end_date, clean)
+        if df is not None and len(df) > 0:
+            first_date = df.item(0, "timestamp").date()
+            last_date = df.item(-1, "timestamp").date()
+            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+            df.write_parquet(os.path.join(dir, fname))    
+    
+    def download_stocks(
+            self,
+            endpoint: PolygonEndpoint,
+            start_date: dt.date,
+            end_date: dt.date | None = None,
+            clean: bool = True
+        ) -> Optional[pl.DataFrame]:
+
+        """Download stock data for a given date range."""
+
+        dfs_list = []
+        date_range = self._get_date_range(start_date, end_date)
+
+        for current_date in date_range:
+            key = self._create_object_key(
+                PolygonMarket.STOCKS,
+                endpoint,
+                current_date.year,
+                current_date.month,
+                current_date.day
+            )
+            df = self._download_single_key(key)
+            if clean and df is not None:
+                cleaning_f = CLEANING_FUNCTIONS[(PolygonMarket.STOCKS, endpoint)]
+                df = cleaning_f(df)
+
+            if df is not None:
+                dfs_list.append(df)
+
+        complete = pl.concat(dfs_list)
+        return complete    
