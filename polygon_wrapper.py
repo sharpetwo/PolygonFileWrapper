@@ -73,31 +73,31 @@ CLEANING_FUNCTIONS = {
 }
 
 
-# def format_year(year: int) -> int:
-#     """Helper function to format the year value."""
+def format_year(year: int) -> int:
+    """Helper function to format the year value."""
 
-#     if isinstance(year, int) and 2000 <= year < 2100:
-#         return year
-#     else:
-#         raise ValueError("Year must be an integer between 2000 and 2099 inclusive")
-
-
-# def format_month(month: int) -> str:
-#     """Helper function to format the month value."""
-
-#     if isinstance(month, int) and 1 <= month <= 12:
-#         return f"{month:02}"
-#     else:
-#         raise ValueError("Month must be an integer between 1 and 12 inclusive")
+    if isinstance(year, int) and 2000 <= year < 2100:
+        return year
+    else:
+        raise ValueError("Year must be an integer between 2000 and 2099 inclusive")
 
 
-# def format_day(day: int) -> str:
-#     """Helper function to format the day value."""
+def format_month(month: int) -> str:
+    """Helper function to format the month value."""
 
-#     if isinstance(day, int) and 1 <= day <= 31:
-#         return f"{day:02}"
-#     else:
-#         raise ValueError("Day must be an integer between 1 and 31 inclusive")
+    if isinstance(month, int) and 1 <= month <= 12:
+        return f"{month:02}"
+    else:
+        raise ValueError("Month must be an integer between 1 and 12 inclusive")
+
+
+def format_day(day: int) -> str:
+    """Helper function to format the day value."""
+
+    if isinstance(day, int) and 1 <= day <= 31:
+        return f"{day:02}"
+    else:
+        raise ValueError("Day must be an integer between 1 and 31 inclusive")
 
 
 # def parse_date(date: str) -> dt.date:
