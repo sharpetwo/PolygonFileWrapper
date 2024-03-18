@@ -100,35 +100,6 @@ def format_day(day: int) -> str:
         raise ValueError("Day must be an integer between 1 and 31 inclusive")
 
 
-# def parse_date(date: str) -> dt.date:
-#     """
-#     Format date as "YYYYMMDD".
-
-#     Args:
-#         date (str): The date string to format.
-
-#     Returns:
-#         datetime.date: The formatted date.
-
-#     """
-#     try:
-#         return dt.datetime.strptime(date, '%Y%m%d')
-#     except ValueError:
-#         _date = dateparser.parse(date)
-#         if not _date:
-#             raise ValueError(f"Date format isn't correct and (ideally) should be YYYYMMDD - currently {date}")
-
-#         return _date
-
-
-def is_date_range_valid(start_date: dt.date, end_date: dt.date):
-    """ Helper function checking if the start_date < end_date."""
-    
-    if not start_date <= end_date:
-        raise ValueError("end_date must be greater than start_date")
-    else:
-        return True
-
 
 class PolygonFileWrapper():
     def __init__(self, access_key=None, secret_key=None):
@@ -144,11 +115,11 @@ class PolygonFileWrapper():
     def _get_date_range(self, start_date: dt.date, end_date: dt.date ) -> pd.DatetimeIndex :
         """Helper function returning a formated date range from a start_date and end_date"""
 
-        # if not end_date:
-        #     end_date = dt.date.today() - dt.timedelta(days=1) 
+        if not start_date <= end_date:
+            raise ValueError("end_date must be greater than start_date")
+        else:
+            return pd.date_range(start=start_date, end=end_date, freq='B')        
 
-        is_date_range_valid(start_date, end_date)
-        return pd.date_range(start=start_date, end=end_date, freq='B')
 
     def _init_session(self) -> boto3.client:
         """Initialize the S3 session using the provided credentials and configuration."""
@@ -284,41 +255,6 @@ class PolygonFileWrapper():
         complete = pl.concat(dfs_list)
         return complete
     
-    # def download_and_save_options(self,
-    #                               endpoint: PolygonEndpoint,
-    #                               start_date: dt.date,
-    #                               end_date: dt.date | None = None,
-    #                               dir: str | None = ".",
-    #                               clean: bool = True
-    #                               ):
-    #     """Download options data and save to disk."""
-
-    #     df = self.download_options(endpoint, start_date, end_date, clean)
-    #     if df is not None and len(df) > 0:
-    #         first_date = df.item(0, "timestamp").date()
-    #         last_date = df.item(-1, "timestamp").date()
-    #         fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
-    #         df.write_parquet(os.path.join(dir, fname))    
-    
-    # def download_and_save_stocks(self,
-    #                               endpoint: PolygonEndpoint,
-    #                               start_date: dt.date,
-    #                               end_date: dt.date | None = None,
-    #                               dir: str | None = ".",
-    #                               clean: bool = True
-    #                               ):
-    #     """Download options data and save to disk."""
-
-    #     df = self.download_stocks(endpoint, start_date, end_date, clean)
-    #     if df is not None and len(df) > 0:
-    #         first_date = df.item(0, "timestamp").date()
-    #         last_date = df.item(-1, "timestamp").date()
-    #         fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
-    #         df.write_parquet(os.path.join(dir, fname))    
-    
-
-    # Indeed complicated to manage at the library level -> I need to snappy which may not be the case for everyone ...
-
 
     def download_stocks(
             self,
@@ -351,3 +287,40 @@ class PolygonFileWrapper():
 
         complete = pl.concat(dfs_list)
         return complete    
+
+    #Indeed complicated to manage at the library level -> I need to snappy which may not be the case for everyone ...
+
+    def download_and_save_options(self,
+                                  endpoint: PolygonEndpoint,
+                                  start_date: dt.date,
+                                  end_date: dt.date | None = None,
+                                  dir: str | None = ".",
+                                  clean: bool = True
+                                  ):
+        """Download options data and save to disk."""
+
+        df = self.download_options(endpoint, start_date, end_date, clean)
+        if df is not None and len(df) > 0:
+            first_date = df.item(0, "timestamp").date()
+            last_date = df.item(-1, "timestamp").date()
+            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+            df.write_parquet(os.path.join(dir, fname))    
+    
+    def download_and_save_stocks(self,
+                                  endpoint: PolygonEndpoint,
+                                  start_date: dt.date,
+                                  end_date: dt.date | None = None,
+                                  dir: str | None = ".",
+                                  clean: bool = True
+                                  ):
+        """Download options data and save to disk."""
+
+        df = self.download_stocks(endpoint, start_date, end_date, clean)
+        if df is not None and len(df) > 0:
+            first_date = df.item(0, "timestamp").date()
+            last_date = df.item(-1, "timestamp").date()
+            fname = f"{first_date}_{last_date}.parquet" if first_date != last_date else f"{first_date}.parquet"
+            df.write_parquet(os.path.join(dir, fname))    
+    
+
+    

@@ -56,8 +56,7 @@ If new dependencies are added, `requirements.txt` can be regenerated with `pip-c
 
     pip-compile -o requirements.txt pyproject.toml
 
-Define env variables `DATADIR` if you want to store each date as a parquet file.
 
 # Run tests
 
-    ACCESS_KEY=... SECRET_KEY=... POLYGON_MARKET=OPTIONS  POLYGON_ENDPOINT=MINUTES DATADIR=. pytest test.py
+    ACCESS_KEY=... SECRET_KEY=... POLYGON_MARKET=OPTIONS  POLYGON_ENDPOINT=MINUTES pytest test.py
