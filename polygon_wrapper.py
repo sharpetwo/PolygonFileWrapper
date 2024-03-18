@@ -123,7 +123,7 @@ def parse_date(date: str) -> dt.date:
 
 def is_date_range_valid(start_date: dt.date, end_date: dt.date):
     """ Helper function checking if the start_date < end_date."""
-
+    
     if not start_date <= end_date:
         raise ValueError("end_date must be greater than start_date")
     else:
@@ -141,11 +141,11 @@ class PolygonFileWrapper():
 
         self.s3 = self._init_session()
 
-    def _get_date_range(self, start_date: dt.date, end_date: dt.date | None = None) -> pd.DatetimeIndex :
+    def _get_date_range(self, start_date: dt.date, end_date: dt.date ) -> pd.DatetimeIndex :
         """Helper function returning a formated date range from a start_date and end_date"""
 
-        if not end_date:
-            end_date = dt.date.today() - dt.timedelta(days=1)
+        # if not end_date:
+        #     end_date = dt.date.today() - dt.timedelta(days=1) 
 
         is_date_range_valid(start_date, end_date)
         return pd.date_range(start=start_date, end=end_date, freq='B')
@@ -324,7 +324,7 @@ class PolygonFileWrapper():
             self,
             endpoint: PolygonEndpoint,
             start_date: dt.date,
-            end_date: dt.date | None = None,
+            end_date: dt.date ,
             clean: bool = True
         ) -> Optional[pl.DataFrame]:
 
