@@ -192,13 +192,13 @@ class PolygonFileWrapper():
             print(contents)
         return contents
 
-    def _download_gzipped_csv(self, key: str, infer_schema: int =10_000) -> Optional[pl.DataFrame]:
+    def _download_gzipped_csv(self, key: str, infer_schema_length: int =10_000) -> Optional[pl.DataFrame]:
         with BytesIO() as data:
             try:
                 self.s3.download_fileobj(self._base_bucket, key, data)
                 data.seek(0)
                 csv_file = gzip.decompress(data.read())
-                df = pl.read_csv(csv_file, infer_schema_length=infer_schema)
+                df = pl.read_csv(csv_file, infer_schema_length=infer_schema_length)
                 return df
             except ClientError as e:
                 error_code = e.response['Error']['Code']
